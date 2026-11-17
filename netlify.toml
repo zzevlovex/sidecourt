@@ -4,6 +4,12 @@
   command = "npm run build"
   publish = "build"
 
+# Phones need the right file type to offer "Install app".
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+
 [build.environment]
   NODE_VERSION = "22"
   # Public by design (every browser receives them), so they can live in the repo.
