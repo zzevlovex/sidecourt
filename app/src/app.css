@@ -621,3 +621,15 @@ body {
 
 /* One focus ring for every control */
 a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+/* ---------- Share cards ---------- */
+.share { gap: 14px; }
+.share-cards { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+.share-preview { display: grid; place-items: center; border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--line); background: var(--bg); }
+.share-preview img { display: block; width: auto; height: auto; max-width: 100%; }
+.share-preview.portrait img { max-height: 46vh; }
+.share-preview.landscape img { max-height: 34vh; }
+/* Checker pattern = this part of the image is see-through */
+.share-preview.checker { background: repeating-conic-gradient(#3a4466 0% 25%, #262d45 0% 50%) 50% / 24px 24px; }
+.share-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 12px; }
+.link-btn:disabled { opacity: 0.45; cursor: not-allowed; }

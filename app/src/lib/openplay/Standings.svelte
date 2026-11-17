@@ -4,9 +4,11 @@
   import { toast } from '$lib/toasts.svelte.js';
   import { plural, pct, signed } from '$lib/format.js';
   import ResultRow from './ResultRow.svelte';
+  import ShareDialog from './ShareDialog.svelte';
   import { showStandings } from './actions.js';
 
   let { summary: s } = $props();
+  let sharing = $state(false);
 
   const ranked = $derived(s.standings.filter((p) => p.played));
   const unplayed = $derived(s.standings.filter((p) => !p.played));
@@ -97,7 +99,12 @@
   {/if}
 
   <div class="row wrap final-actions">
-    {#if ranked.length}<button class="btn btn-ghost" onclick={copyStandings}><Icon name="copy" size={18} /> Copy standings</button>{/if}
+    {#if ranked.length}
+      <button class="btn btn-light" onclick={() => (sharing = true)}><Icon name="share" size={18} /> Share cards</button>
+      <button class="btn btn-ghost" onclick={copyStandings}><Icon name="copy" size={18} /> Copy text</button>
+    {/if}
     <button class="btn btn-primary grow" onclick={() => showStandings(false)}>Start new open play</button>
   </div>
 </section>
+
+{#if sharing}<ShareDialog summary={s} onclose={() => (sharing = false)} />{/if}

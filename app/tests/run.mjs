@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { newMatch, rally, undo, winner, callText, serviceCourt, isGamePoint } from '../src/lib/logic/scoring.js';
 import { newSession, addPlayers, fillCourt, endGame, pickNext, setAllowPicks, waitingCount, playingCount, moveUp, removeEntry, upcoming, reshuffle, rankings, finishSession, pairUp, splitPair, playHistory, splitCost } from '../src/lib/logic/queue.js';
 
+import { shareCards, overallStats, playerMatches, closestGames } from '../src/lib/logic/shareCard.js';
 import qrcode from 'qrcode-generator';
 import jsQR from 'jsqr';
 import { publicState, codeFrom } from '../src/lib/logic/lobby.js';
@@ -233,6 +234,65 @@ assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
   const fresh = addPlayers(newSession({ courts: 1 }), ['A', 'B', 'C', 'D']);
   const seen = new Set([0, 0.4, 0.8].map((r) => fillCourt(fresh, 1, () => r).courts[0].teams.map((t) => t.p.slice().sort().join()).sort().join(' vs ')));
   assert.equal(seen.size, 3);
+}
+
+// Share cards: 1 overall + 1 per top-3 player; names cut and made safe; matches from the player's side.
+{
+  const res = [ // stored newest first, like a real session
+    { court: 2, teams: [['Ana <b>&', 'Cy'], ['A very long player name indeed', 'Dee']], score: null, winner: 'a' },
+    { court: 1, teams: [['Ana <b>&', 'A very long player name indeed'], ['Cy', 'Dee']], score: { a: 11, b: 5 } },
+  ];
+  const sum = { name: 'Friday Night!', sport: 'badminton', endedAt: '2026-11-20T10:00:00Z', games: 2, results: res, standings: rankings(res) };
+  assert.deepEqual(overallStats(sum), { games: 2, players: 4, points: 16 });
+  const cards = shareCards(sum, { site: 'example.app' });
+  assert.deepEqual(cards.map((c) => c.id), ['overall', 'top-1', 'top-2', 'top-3']);
+  assert.deepEqual(cards.map((c) => c.file), ['friday-night-overall.png', 'friday-night-top-1.png', 'friday-night-top-2.png', 'friday-night-top-3.png']);
+  for (const c of cards) assert.ok(c.svg.startsWith('<svg') && !c.svg.includes('<b>') && !c.svg.includes('undefined') && !c.svg.includes('NaN'), c.id);
+  assert.ok(cards[0].svg.includes('RANKINGS') && cards[0].svg.includes('CLOSEST GAME') && cards[0].svg.includes('Ana &lt;b&gt;&amp;'));
+  assert.ok(cards[1].svg.includes('1ST PLACE') && cards[2].svg.includes('2ND PLACE') && cards[3].svg.includes('3RD PLACE'));
+  assert.ok(cards[0].svg.includes('…') && !cards[0].svg.includes('A very long player name indeed'));
+  // Ana's matches in playing order, seen from her side.
+  assert.deepEqual(playerMatches(sum, 'Ana <b>&'), [
+    { partner: 'A very long player name indeed', opponents: 'Cy & Dee', court: 1, result: 'win', score: '11–5' },
+    { partner: 'Cy', opponents: 'A very long player name indeed & Dee', court: 2, result: 'win', score: null },
+  ]);
+  assert.equal(playerMatches(sum, 'Dee')[0].score, '5–11'); // loser sees their own score first
+  // Landscape and transparent: right size, and no dark background rectangle.
+  const wide = shareCards(sum, { orientation: 'landscape', background: 'transparent' });
+  assert.deepEqual([wide[0].width, wide[0].height, cards[0].width, cards[0].height], [1920, 1080, 1080, 1920]);
+  assert.ok(wide.every((c) => c.svg.includes('width="1920" height="1080"') && !c.svg.includes('fill="url(#bg)"')));
+  assert.ok(cards.every((c) => c.svg.includes('fill="url(#bg)"')));
+  // See-through is text only: no background shape of any kind, and the letters carry the glow.
+  assert.ok(wide.every((c) => c.svg.includes('filter="url(#glow)"')));
+  assert.ok(wide.every((c) => !/<rect|fill="url\(#(bg|warm|cool)\)"/.test(c.svg)));
+  assert.ok(cards.every((c) => !c.svg.includes('url(#glow)'))); // the dark card needs no glow
+  // The middle stays empty for a photo: no text between the top band and the bottom band.
+  for (const [cardsOf, from, to] of [[cards, 320, 1600], [wide, 240, 846]]) {
+    for (const c of cardsOf) {
+      const ys = [...c.svg.matchAll(/<text x="[^"]+" y="([\d.]+)"/g)].map((mm) => Number(mm[1]));
+      assert.ok(ys.length > 5 && ys.every((y) => y < from || y > to), `${c.id}: text in the photo area`);
+    }
+  }
+  // Highlights only: top 5, the 3 closest games, a player's last games.
+  const g = (a, b, sa, sb) => ({ court: 1, teams: [a, b], score: { a: sa, b: sb } });
+  const night = [ // newest first
+    g(['P1', 'P2'], ['P3', 'P4'], 11, 10), // gap 1
+    g(['P1', 'P3'], ['P5', 'P6'], 11, 3), // gap 8
+    g(['P1', 'P4'], ['P2', 'P5'], 11, 9), // gap 2
+    g(['P1', 'P5'], ['P3', 'P6'], 11, 9), // gap 2
+    g(['P1', 'P6'], ['P2', 'P4'], 11, 5), // gap 6
+    { court: 2, teams: [['P2', 'P3'], ['P4', 'P5']], score: null, winner: 'a' }, // no score: never "closest"
+  ];
+  const big = { name: 'Big night', sport: 'pickleball', endedAt: '2026-11-20T10:00:00Z', games: 6, results: night, standings: rankings(night) };
+  assert.deepEqual(closestGames(big, 3), [night[0], night[2], night[3]]);
+  const [bigOverall, bigTop1] = shareCards(big);
+  assert.ok(bigOverall.svg.includes('TOP 5') && bigOverall.svg.includes('CLOSEST GAMES'));
+  assert.ok(bigOverall.svg.includes('11–10') && !bigOverall.svg.includes('11–3') && !bigOverall.svg.includes('11–5'));
+  assert.ok(bigTop1.svg.includes('LAST 4 OF 5 GAMES')); // P1 played 5
+  assert.ok(shareCards(big, { orientation: 'landscape' })[1].svg.includes('LAST 3 OF 5 GAMES'));
+  // Empty session: only the overall card, saying so.
+  const empty = shareCards({ ...sum, games: 0, results: [], standings: [] });
+  assert.ok(empty.length === 1 && empty[0].svg.includes('No games were played.'));
 }
 
 console.log('All checks passed.');
