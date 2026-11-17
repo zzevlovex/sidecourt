@@ -1,0 +1,4 @@
+# Never commit local settings or generated folders
+.env
+.env.*
+node_modules/

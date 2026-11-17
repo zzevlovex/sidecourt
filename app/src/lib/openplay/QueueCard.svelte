@@ -1,0 +1,103 @@
+<script>
+  import { flip } from 'svelte/animate';
+  import { fly } from 'svelte/transition';
+  import { store } from '$lib/state.svelte.js';
+  import { waitingCount } from '$lib/logic/queue.js';
+  import { plural } from '$lib/format.js';
+  import { motion } from '$lib/motion.js';
+  import { ui } from './ui.svelte.js';
+  import { moveUp, removePlayer, pairWith, split } from './actions.js';
+
+  // games: the next two games, to mark who plays next.
+  let { games } = $props();
+
+  const session = $derived(store.session);
+  const nextNames = $derived(new Set((games[0] || []).flatMap((t) => t.p)));
+  const deckNames = $derived(new Set((games[1] || []).flatMap((t) => t.p)));
+  const picking = $derived(ui.pairing !== null ? session.queue.find((e) => e.id === ui.pairing) ?? null : null);
+  const solos = $derived(session.queue.filter((e) => e.p.length === 1).length);
+
+  function details(entry) {
+    const games = Math.min(...entry.p.map((n) => session.games[n] || 0));
+    return [
+      entry.p.length === 2 ? '🤝 Partners' : 'Random teammate',
+      `${plural(games, 'game')} played`,
+      entry.addedBy ? `by ${entry.addedBy}` : '',
+    ].filter(Boolean).join(' · ');
+  }
+</script>
+
+<section class="card stack area-line">
+  <div class="row between">
+    <h2 class="section-title">Waiting line</h2>
+    <span class="count">{waitingCount(session)}</span>
+  </div>
+
+  {#if picking}
+    <div class="pair-banner">
+      <span>Choose a partner for <strong>{picking.p[0]}</strong></span>
+      <button class="btn btn-small btn-ghost" onclick={() => (ui.pairing = null)}>Cancel</button>
+    </div>
+  {:else}
+    <p class="muted small">
+      Top of the line plays first. Use &uarr; to move someone up{session.allowPicks ? ', 🤝 Pair to team two players up' : ''}.
+    </p>
+  {/if}
+
+  <ol class="queue">
+    {#each session.queue as entry, index (entry.id)}
+      {@const solo = entry.p.length === 1}
+      {@const inNext = entry.p.some((n) => nextNames.has(n))}
+      {@const inDeck = !inNext && entry.p.some((n) => deckNames.has(n))}
+      {@const who = entry.p.join(' and ')}
+      <li
+        class={[
+          'queue-item',
+          inNext && 'next',
+          inDeck && 'deck',
+          !solo && 'paired',
+          picking && entry.id === picking.id && 'picking',
+          picking && entry.id !== picking.id && (solo ? 'pick-target' : 'dim'),
+        ]}
+        animate:flip={motion({ duration: 250 })}
+        in:fly={motion({ x: 16, duration: 300 })}
+        out:fly={motion({ x: 24, duration: 200 })}
+      >
+        <span class="pos">{index + 1}</span>
+        <span class="grow">
+          <strong>{entry.p.join(' & ')}</strong>
+          {#if inNext}<span class="badge badge-next">Next game</span>{/if}
+          {#if inDeck}<span class="badge badge-deck">After that</span>{/if}
+          <span class="tag">{details(entry)}</span>
+        </span>
+        <span class="item-actions">
+          {#if picking}
+            <!-- Choosing a partner: only the choices are shown -->
+            {#if entry.id === picking.id}
+              <button class="pair-btn" onclick={() => (ui.pairing = null)}>Cancel</button>
+            {:else if solo}
+              <button class="pair-btn pick" onclick={() => pairWith(entry.id)}>🤝 Pair with {picking.p[0]}</button>
+            {/if}
+          {:else}
+            {#if session.allowPicks}
+              {#if solo}
+                <button
+                  class="pair-btn"
+                  disabled={solos < 2}
+                  title={solos < 2 ? 'Nobody else in the line to pair with' : undefined}
+                  aria-label="Pair {who} with someone"
+                  onclick={() => (ui.pairing = entry.id)}>🤝 Pair</button>
+              {:else}
+                <button class="pair-btn" aria-label="Split {who} into random teammates" onclick={() => split(entry)}>Split</button>
+              {/if}
+            {/if}
+            <button class="icon-btn" aria-label="Move {who} up" disabled={index === 0} onclick={() => moveUp(entry.id)}>&uarr;</button>
+            <button class="icon-btn" aria-label="Remove {who}" onclick={() => removePlayer(entry)}>&times;</button>
+          {/if}
+        </span>
+      </li>
+    {:else}
+      <li class="empty-line muted">Nobody is waiting. Check players in above.</li>
+    {/each}
+  </ol>
+</section>

@@ -1,0 +1,12 @@
+# Netlify reads this on every push: build the SvelteKit app in app/ and publish app/build.
+[build]
+  base = "app"
+  command = "npm run build"
+  publish = "build"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # Public by design (every browser receives them), so they can live in the repo.
+  # The secret key (sb_secret_...) must NEVER go here.
+  PUBLIC_SUPABASE_URL = "https://xhccrjnlnoriuqzdcyit.supabase.co"
+  PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_PlId3xxFzxpCVv_-9fzRpw_Y7mT5AsG"
