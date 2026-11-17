@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { newMatch, rally, undo, winner, callText, serviceCourt, isGamePoint } from '../src/lib/logic/scoring.js';
 import { newSession, addPlayers, fillCourt, endGame, pickNext, setAllowPicks, waitingCount, playingCount, moveUp, removeEntry, upcoming, reshuffle, rankings, finishSession, pairUp, splitPair, playHistory, splitCost } from '../src/lib/logic/queue.js';
 
-import { shareCards, overallStats, playerMatches, closestGames } from '../src/lib/logic/shareCard.js';
+import { shareCards, overallStats, playerMatches, closestGames, STORY_SAFE } from '../src/lib/logic/shareCard.js';
 import qrcode from 'qrcode-generator';
 import jsQR from 'jsqr';
 import { publicState, codeFrom } from '../src/lib/logic/lobby.js';
@@ -271,11 +271,16 @@ assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
   assert.ok(wide.every((c) => !/<rect|fill="url\(#(bg|warm|cool)\)"/.test(c.svg)));
   assert.ok(cards.every((c) => !c.svg.includes('url(#glow)'))); // the dark card needs no glow
   // The middle stays empty for a photo: no text between the top band and the bottom band.
-  for (const [cardsOf, from, to] of [[cards, 320, 1600], [wide, 240, 846]]) {
+  for (const [cardsOf, from, to] of [[cards, 540, 1330], [wide, 240, 846]]) {
     for (const c of cardsOf) {
       const ys = [...c.svg.matchAll(/<text x="[^"]+" y="([\d.]+)"/g)].map((mm) => Number(mm[1]));
       assert.ok(ys.length > 5 && ys.every((y) => y < from || y > to), `${c.id}: text in the photo area`);
     }
+  }
+  // Portrait is an Instagram story: every line of text stays clear of the areas Instagram covers.
+  for (const c of [...cards, ...shareCards(sum, { background: 'transparent' })]) {
+    const lines = [...c.svg.matchAll(/<text x="[^"]+" y="([\d.]+)" font-size="([\d.]+)"/g)].map((mm) => [Number(mm[1]), Number(mm[2])]);
+    assert.ok(lines.length > 5 && lines.every(([y, size]) => y - size >= STORY_SAFE.top && y <= 1920 - STORY_SAFE.bottom), `${c.id}: text under Instagram's bars`);
   }
   // Highlights only: top 5, the 3 closest games, a player's last games.
   const g = (a, b, sa, sb) => ({ court: 1, teams: [a, b], score: { a: sa, b: sb } });

@@ -11,11 +11,11 @@
 </div>
 <ol class="rank-list">
   {#each ranked as p, i (p.name)}
-    <li class={['rank-row', p.rank <= 3 && 'top', highlight && highlight(p.name) && 'me']} style="--i: {Math.min(i, 12)}">
+    <li class={['rank-row', p.rank <= 3 && 'top3', highlight && highlight(p.name) && 'me']} style="--i: {Math.min(i, 12)}">
       <span class="rank-num">{#if p.rank <= 3}<span class="rank-badge place-{p.rank}">{p.rank}</span>{:else}{p.rank}{/if}</span>
       <span class="grow">
         <strong>{p.name}</strong>{#if highlight && highlight(p.name)}<span class="badge badge-next">You</span>{/if}
-        <span class="tag">{plural(p.played, 'game')} · {p.pointsFor} pts scored</span>
+        <span class="tag">{plural(p.played, 'game')}<span class="tag-extra"> · {p.pointsFor} pts scored</span></span>
       </span>
       <span class="rank-wl">{p.wins}–{p.losses}</span>
       <span class="rank-pct">{pct(p)}</span>

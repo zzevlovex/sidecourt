@@ -5,6 +5,10 @@
 
   $effect(() => {
     dialog.showModal();
+    // Focus the dialog itself, not its first button (often at the bottom), so
+    // it opens at the top and a stray Enter does not press anything.
+    dialog.focus();
+    dialog.scrollTop = 0;
     return () => {
       if (dialog.open) dialog.close();
     };
@@ -14,6 +18,7 @@
 <dialog
   bind:this={dialog}
   class="end-dialog"
+  tabindex="-1"
   aria-labelledby={labelledby}
   oncancel={(event) => {
     event.preventDefault();

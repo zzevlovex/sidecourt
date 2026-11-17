@@ -5,7 +5,7 @@
   import Icon from '$lib/components/Icon.svelte';
   import { toast } from '$lib/toasts.svelte.js';
   import { shareCards } from '$lib/logic/shareCard.js';
-  import { svgUrl, cardToPng, download, canShareFiles } from '$lib/sharePng.js';
+  import { svgUrl, cardToPng, saveFiles, canShareFiles } from '$lib/sharePng.js';
 
   let { summary, onclose } = $props();
 
@@ -31,13 +31,13 @@
   }
 
   const save = () => run(async () => {
-    download(await cardToPng(card));
-    toast(`Saved ${card.file}`, { type: 'success' });
+    if ((await saveFiles([await cardToPng(card)])) === 'saved') toast(`Saved ${card.file}`, { type: 'success' });
   });
 
   const saveAll = () => run(async () => {
-    for (const c of cards) download(await cardToPng(c));
-    toast(`Saved ${cards.length} images.`, { type: 'success' });
+    const files = [];
+    for (const c of cards) files.push(await cardToPng(c));
+    if ((await saveFiles(files)) === 'saved') toast(`Saved ${cards.length} images.`, { type: 'success' });
   });
 
   const share = () => run(async () => {
@@ -70,7 +70,7 @@
       <div class="stack tight">
         <span class="label">Shape</span>
         <div class="segmented" role="group" aria-label="Shape">
-          <button class={[orientation === 'portrait' && 'on']} aria-pressed={orientation === 'portrait'} onclick={() => (orientation = 'portrait')}>Portrait</button>
+          <button class={[orientation === 'portrait' && 'on']} aria-pressed={orientation === 'portrait'} onclick={() => (orientation = 'portrait')}>Story</button>
           <button class={[orientation === 'landscape' && 'on']} aria-pressed={orientation === 'landscape'} onclick={() => (orientation = 'landscape')}>Landscape</button>
         </div>
       </div>
@@ -83,6 +83,7 @@
       </div>
     </div>
     <p class="hint">
+      {orientation === 'portrait' ? 'Instagram story size' : 'Landscape, 16:9'} · {card.width} × {card.height} px.
       {background === 'transparent'
         ? 'See-through: text only on a transparent image. Lay it over your own photo in your editor or story.'
         : 'The middle is left empty so you can add a photo on top.'}

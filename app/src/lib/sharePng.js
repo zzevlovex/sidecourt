@@ -30,3 +30,20 @@ export function download(file) {
 // True where the phone's share sheet accepts images (Instagram, Messenger, ...).
 export const canShareFiles = () =>
   typeof navigator !== 'undefined' && Boolean(navigator.canShare?.({ files: [new File([''], 'x.png', { type: 'image/png' })] }));
+
+// iPhone and iPad cannot save a file from a download link inside a web app:
+// they open the image full screen instead, which looks like the page zoomed in.
+const isIOS = () =>
+  typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+// Saves images the way that works on this device. On iPhone/iPad that is the
+// share sheet (it has "Save Image"); everywhere else a normal download.
+// Returns 'shared' or 'saved'.
+export async function saveFiles(files) {
+  if (isIOS() && navigator.canShare?.({ files })) {
+    await navigator.share({ files });
+    return 'shared';
+  }
+  files.forEach(download);
+  return 'saved';
+}

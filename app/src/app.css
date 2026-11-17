@@ -45,11 +45,11 @@ a { color: var(--orange); }
 :root { --page-max: 1440px; --gutter: clamp(16px, 4vw, 48px); }
 .page-wrap, .top-inner { width: 100%; max-width: calc(var(--page-max) + 2 * var(--gutter)); margin: 0 auto; padding-left: var(--gutter); padding-right: var(--gutter); }
 .page-wrap { display: block; padding-top: clamp(16px, 3vw, 32px); padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
-.top { position: sticky; top: 0; z-index: 20; padding-top: env(safe-area-inset-top); border-bottom: 1px solid var(--line); background: rgba(10, 13, 24, 0.78); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.site-header { position: sticky; top: 0; z-index: 20; padding-top: env(safe-area-inset-top); border-bottom: 1px solid var(--line); background: rgba(10, 13, 24, 0.78); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .top-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-top: 10px; padding-bottom: 10px; }
 .brand { font-family: var(--display); font-weight: 700; font-size: 1.2rem; color: var(--text); text-decoration: none; display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .brand::before { content: ''; width: 28px; height: 28px; border-radius: var(--r-sm); background: linear-gradient(90deg, var(--orange) 46%, var(--bg) 46% 54%, var(--orange) 54%); transition: transform 0.25s ease; }
-.top nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.site-header nav { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .muted { color: var(--muted); } .small { font-size: 0.875rem; } .center { text-align: center; }
 .eyebrow { color: var(--blue); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; }
@@ -398,7 +398,7 @@ kbd { border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 
 
 .rank-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .rank-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-md); background: var(--raised); animation: slide-in 0.35s ease both; animation-delay: calc(var(--i) * 40ms + 0.6s); }
-.rank-row.top { border: 1px solid var(--border); }
+.rank-row.top3 { border: 1px solid var(--border); }
 .rank-row strong { overflow-wrap: anywhere; }
 .rank-num { font-family: var(--display); font-weight: 800; font-size: 1.05rem; text-align: center; color: var(--muted); }
 .rank-wl { font-family: var(--display); font-weight: 800; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
@@ -518,7 +518,7 @@ body {
 }
 /* Small phones: tighter header and buttons so nothing wraps awkwardly */
 @media (max-width: 480px) {
-  .top .btn { min-height: 40px; padding: 0 14px; font-size: 0.9rem; }
+  .site-header .btn { min-height: 40px; padding: 0 14px; font-size: 0.9rem; }
   .brand { font-size: 1.05rem; }
   .card { padding: 16px; border-radius: var(--r-md); }
 }
@@ -643,3 +643,36 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px soli
 .session-actions { display: flex; gap: 8px; }
 .see-more { align-self: center; }
 .rank-row.me { border: 1px solid var(--orange); }
+
+/* ---------- Toasts on phones: small, at most two, never a wall of messages ---------- */
+@media (max-width: 600px) {
+  .toasts { left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); gap: 6px; align-items: center; }
+  .toast { width: auto; max-width: 100%; gap: 8px; padding: 4px 4px 4px 10px; font-size: 0.82rem; line-height: 1.3; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
+  /* Only the two newest show (the newest is first in the list). */
+  .toast:nth-child(n + 3) { display: none; }
+  /* Long messages stop at two lines. */
+  .toast .grow { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+  .toast-icon { width: 20px; height: 20px; }
+  .toast-icon .icon { width: 13px; height: 13px; }
+  /* Still easy to tap: the buttons keep a 40px tall touch area. */
+  .toast-undo { min-height: 40px; padding: 0 10px; border: none; font-size: 0.82rem; }
+  .toast-close { width: 36px; height: 40px; }
+}
+
+/* ---------- Ranking rows and dialogs on phones ---------- */
+.rank-row strong { margin-right: 6px; }
+@media (max-width: 480px) {
+  .rank-row { gap: 8px; padding: 8px 10px; }
+  .rank-row .tag { font-size: 0.75rem; letter-spacing: 0.03em; }
+  .rank-row .tag-extra { display: none; } /* "pts scored" is in the +/- column already */
+  .rank-wl { font-size: 1rem; }
+  .rank-badge { width: 24px; height: 24px; font-size: 0.8rem; }
+  .end-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 16px; border-radius: var(--r-md); }
+  .end-dialog h2 { font-size: 1.1rem; }
+}
+
+/* The dialog itself takes focus when it opens: no outline around the whole box. */
+.end-dialog:focus, .end-dialog:focus-visible { outline: none; }
+/* Share preview never makes the dialog taller than the screen. */
+.share-preview.portrait img { max-height: min(46vh, 420px); }
+.share-preview.landscape img { max-height: min(34vh, 260px); }

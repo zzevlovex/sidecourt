@@ -26,7 +26,7 @@
 </script>
 
 <!-- Header spans the full width; its content lines up with the page below -->
-<header class="top">
+<header class="site-header">
   <div class="top-inner">
     <div class="row">
       {#if !home}
