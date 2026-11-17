@@ -1,4 +1,5 @@
 <script>
+  import Icon from '$lib/components/Icon.svelte';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
@@ -91,19 +92,22 @@
       <p class="eyebrow">Open play · {session.sport}</p>
       <h1>{session.name}</h1>
     </div>
-    <div class="chips">
-      <span class="stat-chip"><strong>{playingCount(session)}</strong> playing</span>
-      <span class="stat-chip"><strong>{waitingCount(session)}</strong> waiting</span>
-      <span class={['stat-chip', free && 'go']}><strong>{free}/{session.courts.length}</strong> courts free</span>
+    <div class="head-actions">
       {#if session.lobby}
-        <button class="btn btn-small btn-primary" onclick={() => (lobbyOpen = true)}>Lobby {session.lobby}</button>
+        <button class="btn btn-small btn-ghost" onclick={() => (lobbyOpen = true)}><Icon name="qr" size={16} /> Lobby {session.lobby}</button>
       {:else if account.user}
         <span class="stat-chip">Creating lobby…</span>
       {/if}
-      <button class="btn btn-small btn-ghost end-btn" onclick={() => (ui.ending = true)}>End open play</button>
-      <button class="help-btn" aria-expanded={ui.help} aria-label="How open play works" title="How open play works" onclick={() => setHelp(!ui.help)}>?</button>
+      <button class="btn btn-small btn-ghost end-btn" onclick={() => (ui.ending = true)}>End</button>
+      <button class="help-btn" aria-expanded={ui.help} aria-label="How open play works" title="How open play works" onclick={() => setHelp(!ui.help)}><Icon name="help" size={18} /></button>
     </div>
   </section>
+
+  <div class="chips stat-row">
+    <span class="stat-chip"><strong>{playingCount(session)}</strong> playing</span>
+    <span class="stat-chip"><strong>{waitingCount(session)}</strong> waiting</span>
+    <span class={['stat-chip', free && 'go']}><strong>{free}/{session.courts.length}</strong> courts free</span>
+  </div>
 
   <section class="layout">
     <div class="main-col">
@@ -128,7 +132,7 @@
               <span class="label">Now calling · Court {session.lastCall.court}</span>
               <strong>{session.lastCall.names.join(', ')}</strong>
             </span>
-            <button class="btn btn-dark btn-small" onclick={announce}>🔊 Announce</button>
+            <button class="btn btn-dark btn-small" onclick={announce}><Icon name="volume" size={16} /> Announce</button>
           </div>
         {/key}
       {/if}

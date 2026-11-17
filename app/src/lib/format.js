@@ -2,7 +2,6 @@
 
 export const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
 export const teamNames = (team) => team.p.join(' & ');
-export const medal = (rank) => ({ 1: '🥇', 2: '🥈', 3: '🥉' })[rank] || '';
 export const pct = (p) => (p.wins + p.losses ? `${Math.round(p.winRate * 100)}%` : '–');
 export const signed = (n) => (n > 0 ? `+${n}` : String(n));
 

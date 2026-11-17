@@ -1,4 +1,5 @@
 <script>
+  import Icon from '$lib/components/Icon.svelte';
   import { resultWinner } from '$lib/logic/queue.js';
 
   let { result: r } = $props();
@@ -13,7 +14,7 @@
     {#each [0, 1] as i (i)}
       {#if i === 1}<span class="vs-small">vs</span>{/if}
       <span class={['res-team', i === 0 ? 'a' : 'b', win === i && 'won', win !== null && win !== i && 'lost']}>
-        {#if win === i}<span class="crown" aria-label="Winner">🏆</span>{/if}{r.teams[i].join(' & ')}
+        {#if win === i}<span class="crown" role="img" aria-label="Winner"><Icon name="trophy" size={14} /></span>{/if}{r.teams[i].join(' & ')}
       </span>
     {/each}
   </span>

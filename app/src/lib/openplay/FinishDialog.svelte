@@ -1,4 +1,5 @@
 <script>
+  import Icon from '$lib/components/Icon.svelte';
   // "Who won?" when a game is finished without a clear score.
   import Modal from '$lib/components/Modal.svelte';
   import { store } from '$lib/state.svelte.js';
@@ -28,7 +29,7 @@
           {#if i === 1}<span class="vs">VS</span>{/if}
           <button class="win-pick {side}" type="button" onclick={() => pickWinner(side)}>
             <span class="win-pick-names">{#each team.p as name (name)}<strong>{name}</strong>{/each}</span>
-            <span class="win-pick-cta">🏆 They won</span>
+            <span class="win-pick-cta"><Icon name="trophy" size={16} /> They won</span>
           </button>
         {/each}
       </div>

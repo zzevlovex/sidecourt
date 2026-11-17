@@ -1,4 +1,5 @@
 <script>
+  import Icon from '$lib/components/Icon.svelte';
   // Home. One clear main action (players joining open play), then the
   // manager actions, then small extras.
   import { goto } from '$app/navigation';
@@ -53,18 +54,18 @@
       <a class={['card action-card', store.session && 'active']} href={resolve('/openplay')}>
         <span class="label">{store.session ? 'Session running' : 'Managers'}</span>
         <strong>{store.session ? `Continue ${store.session.name}` : 'Host open play'}</strong>
-        <span class="arrow" aria-hidden="true">→</span>
+        <span class="arrow"><Icon name="arrow-right" /></span>
       </a>
       <a class="card action-card" href={resolve('/scoreboard')}>
         <span class="label">One game</span>
         <strong>Score a match</strong>
-        <span class="arrow" aria-hidden="true">→</span>
+        <span class="arrow"><Icon name="arrow-right" /></span>
       </a>
     </div>
 
     <!-- 3. Extras -->
     {#if store.summary}
-      <a class="text-link" href="{resolve('/openplay')}?view=standings">🏆 Last standings: {store.summary.name}</a>
+      <a class="text-link" href="{resolve('/openplay')}?view=standings"><Icon name="trophy" size={18} /> Last standings: {store.summary.name}</a>
     {/if}
   </div>
 </div>

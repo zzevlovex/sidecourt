@@ -1,4 +1,5 @@
 <script>
+  import Icon from '$lib/components/Icon.svelte';
   import { store } from '$lib/state.svelte.js';
   import { waitingCount } from '$lib/logic/queue.js';
   import { plural, teamNames } from '$lib/format.js';
@@ -20,7 +21,7 @@
 
 {#snippet shuffleButton()}
   {#if anyRandom}
-    <button class="btn btn-small btn-ghost" title="Pick new random teammates" onclick={shuffle}>⟳ Shuffle</button>
+    <button class="btn btn-small btn-ghost" title="Pick new random teammates" onclick={shuffle}><Icon name="refresh" size={16} /> Shuffle</button>
   {/if}
 {/snippet}
 

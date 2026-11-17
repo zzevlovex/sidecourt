@@ -1,4 +1,5 @@
 <script>
+  import Icon from '$lib/components/Icon.svelte';
   // Players follow an open play from their own phone: courts, who's next,
   // their place in line, recent results. Signed-in players can join the line.
   import { page } from '$app/state';
@@ -53,6 +54,83 @@
   const myPlace = $derived(s && myName ? s.queue.findIndex((e) => e.p.some(isMe)) : -1);
   const onCourt = $derived(s && myName ? s.courts.find((c) => c.teams.some((t) => t.p.some(isMe))) : null);
 
+  /* ---------- "You're up next" alerts ---------- */
+
+  // Where I am right now. An alert fires when this changes to "next" or a court.
+  const myStatus = $derived(
+    !myName || !lobby?.open ? 'out'
+      : onCourt ? `court-${onCourt.id}`
+      : games[0]?.some((t) => t.p.some(isMe)) ? 'next'
+      : myPlace >= 0 ? 'line' : 'out',
+  );
+
+  // Phones only allow sound after a tap on the page: the first tap unlocks it.
+  let audio = null;
+  function unlockSound() {
+    audio ??= new (window.AudioContext || window.webkitAudioContext)();
+    audio.resume?.();
+  }
+  function beep() {
+    if (!audio) return;
+    [0, 0.25].forEach((t) => {
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.3, audio.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + t + 0.2);
+      osc.connect(gain).connect(audio.destination);
+      osc.start(audio.currentTime + t);
+      osc.stop(audio.currentTime + t + 0.22);
+    });
+  }
+
+  // System notifications reach people when the app is in the background
+  // (Android; iPhone only when installed to the home screen).
+  const canNotify = typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator;
+  let notifyAllowed = $state(typeof Notification !== 'undefined' && Notification.permission === 'granted');
+  async function turnOnAlerts() {
+    unlockSound();
+    notifyAllowed = (await Notification.requestPermission()) === 'granted';
+    toast(notifyAllowed ? "Alerts on: we'll tell you when you're up." : 'Notifications blocked. You still get sound and vibration with the app open.', { type: notifyAllowed ? 'success' : 'info' });
+  }
+
+  function alertMe(text) {
+    navigator.vibrate?.([300, 150, 300]);
+    beep();
+    toast(text, { type: 'success', ms: 10000, key: 'up-next' });
+    if (notifyAllowed && document.hidden) {
+      navigator.serviceWorker.ready.then((reg) => reg.showNotification('Sidecourt', { body: text, tag: 'up-next', renotify: true })).catch(() => {});
+    }
+  }
+
+  let lastStatus = null; // not shown on screen: only used to spot a change
+  $effect(() => {
+    const status = myStatus;
+    if (lastStatus !== null && status !== lastStatus) {
+      if (status === 'next') alertMe("You're in the next game: get ready!");
+      else if (status.startsWith('court-')) alertMe(`You're on Court ${status.slice(6)}. Go play!`);
+    }
+    lastStatus = status;
+  });
+
+  // Keep the screen on while waiting in line, so updates and alerts keep coming.
+  let wake = null;
+  async function keepAwake() {
+    const waiting = myStatus === 'line' || myStatus === 'next';
+    if (!waiting) return wake?.release();
+    if (wake || !('wakeLock' in navigator) || document.hidden) return;
+    try {
+      wake = await navigator.wakeLock.request('screen');
+      wake.addEventListener('release', () => (wake = null));
+    } catch {
+      // not allowed (battery saver): alerts still work while the screen is on
+    }
+  }
+  $effect(() => {
+    myStatus;
+    keepAwake();
+  });
+
   function open(event) {
     event.preventDefault();
     const c = codeFrom(typed);
@@ -78,6 +156,8 @@
 </script>
 
 <svelte:head><title>{s ? `${s.name} · ` : ''}Lobby · Sidecourt</title></svelte:head>
+<svelte:window onpointerdown={unlockSound} />
+<svelte:document onvisibilitychange={keepAwake} />
 
 {#if !supabase}
   <p class="notice">Lobbies need the online setup (app/.env).</p>
@@ -116,7 +196,7 @@
     </header>
 
     {#if !lobby.open}
-      <p class="notice">This open play has ended. Players with an account can see their games under Account → My games.</p>
+      <p class="notice">This open play has ended. Players with an account can see their games under Account, in My games.</p>
     {/if}
 
     <!-- Where am I? -->
@@ -128,11 +208,14 @@
           <p class="me-status">You're playing on <strong>Court {onCourt.id}</strong>.</p>
         {:else if myPlace >= 0}
           <p class="me-status">You're <strong>#{myPlace + 1}</strong> in line.</p>
-          {#if games[0]?.some((t) => t.p.some(isMe))}<p class="hot-text">You're in the next game: get ready!</p>{/if}
+          {#if myStatus === 'next'}<p class="hot-text">You're in the next game: get ready!</p>{/if}
         {:else if asked}
           <p class="me-status">Asked to join: you appear in the line in a few seconds.</p>
         {:else}
           <button class="btn btn-primary btn-big" disabled={joining} onclick={join}>Join the line as {myName}</button>
+        {/if}
+        {#if (onCourt || myPlace >= 0) && canNotify && !notifyAllowed}
+          <button class="btn btn-small btn-ghost" onclick={turnOnAlerts}><Icon name="bell" size={16} /> Alert me when I'm up</button>
         {/if}
       </section>
     {/if}
@@ -185,9 +268,9 @@
     </section>
 
     {#if s.results.length}
-      <section class="card stack">
+      <section class="card stack quiet">
         <h2 class="section-title">Recent results</h2>
-        <ul class="results">{#each s.results as result, i (i)}<ResultRow {result} />{/each}</ul>
+        <ul class="results">{#each s.results.slice(0, 10) as result, i (i)}<ResultRow {result} />{/each}</ul>
       </section>
     {/if}
   </section>

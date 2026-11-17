@@ -168,13 +168,66 @@ function shuffle(list, random) {
   return out;
 }
 
-function buildTeams(taken, random) {
+// Who has played with and against whom tonight, and how well each player is doing.
+export function playHistory(results = []) {
+  const together = new Map(); // "Ana|Ben" -> games as partners
+  const against = new Map(); // "Ana|Cy" -> games as opponents
+  const record = new Map(); // name -> { wins, decided }
+  const key = (a, b) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+  const bump = (map, a, b) => map.set(key(a, b), (map.get(key(a, b)) || 0) + 1);
+  results.forEach((r) => {
+    const [A, B] = r.teams;
+    [A, B].forEach((team) => { if (team.length === 2) bump(together, team[0], team[1]); });
+    A.forEach((a) => B.forEach((b) => bump(against, a, b)));
+    const won = r.winner ?? resultWinner(r.score);
+    if (won) {
+      [A, B].forEach((team, i) => team.forEach((n) => {
+        const rec = record.get(n) || { wins: 0, decided: 0 };
+        rec.decided += 1;
+        if ((i === 0 ? 'a' : 'b') === won) rec.wins += 1;
+        record.set(n, rec);
+      }));
+    }
+  });
+  return {
+    partners: (a, b) => together.get(key(a, b)) || 0,
+    opponents: (a, b) => against.get(key(a, b)) || 0,
+    // Win rate pulled toward 50% so one game does not make anyone a "pro" or a "beginner".
+    skill: (n) => {
+      const rec = record.get(n) || { wins: 0, decided: 0 };
+      return (rec.wins + 1) / (rec.decided + 2);
+    },
+  };
+}
+
+// How unfair a split of 4 players into [x, y] vs [z, w] is (lower is better):
+// repeat partners count most, then repeat opponents, then a skill gap between teams.
+export function splitCost([x, y], [z, w], h) {
+  return 3 * (h.partners(x, y) + h.partners(z, w))
+    + h.opponents(x, z) + h.opponents(x, w) + h.opponents(y, z) + h.opponents(y, w)
+    + 4 * Math.abs(h.skill(x) + h.skill(y) - h.skill(z) - h.skill(w));
+}
+
+// Picked partners stay together. Four solo players get the fairest of the 3
+// possible splits; near-equal options are chosen at random, so Shuffle can vary.
+function buildTeams(taken, random, results) {
   const teams = [];
   const solos = [];
   taken.forEach((entry) => {
     if (entry.p.length === 2) teams.push({ p: entry.p, picked: true });
     else solos.push(entry.p[0]);
   });
+  if (solos.length === 4) {
+    const h = playHistory(results);
+    const [a, b, c, d] = solos;
+    const splits = [[[a, b], [c, d]], [[a, c], [b, d]], [[a, d], [b, c]]].map((split) => ({ split, cost: splitCost(...split, h) }));
+    const best = Math.min(...splits.map((o) => o.cost));
+    const fair = splits.filter((o) => o.cost <= best + 0.5);
+    const [first, second] = fair[Math.floor(random() * fair.length)].split;
+    const [p1, p2] = random() < 0.5 ? [first, second] : [second, first]; // which side is A
+    teams.push({ p: p1, picked: false }, { p: p2, picked: false });
+    return teams;
+  }
   const mixed = shuffle(solos, random);
   for (let i = 0; i < mixed.length; i += 2) teams.push({ p: mixed.slice(i, i + 2), picked: false });
   return teams;
@@ -184,7 +237,7 @@ function buildTeams(taken, random) {
 export function planNext(session, random = makeRng(session.seed ?? 1)) {
   const picked = pickNext(session);
   if (!picked) return null;
-  return { ...picked, teams: buildTeams(picked.taken, random) };
+  return { ...picked, teams: buildTeams(picked.taken, random, session.results) };
 }
 
 // The next few games in order, without changing the session.

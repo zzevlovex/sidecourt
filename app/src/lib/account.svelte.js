@@ -3,6 +3,7 @@
 // (Supabase stores it hashed and limits wrong guesses).
 import { supabase } from './supabase.js';
 import { newKey, newPlayerCode, parseKey, keyEmail } from './logic/keys.js';
+import { remove } from './storage.js';
 
 class Account {
   ready = $state(!supabase); // true once we know whether someone is signed in
@@ -100,6 +101,16 @@ class Account {
     this.profile = { ...this.profile, key_id: keyId };
     this.recovering = false;
     return key;
+  }
+
+  // Permanently deletes the account (see supabase/04_delete_account.sql).
+  async deleteAccount() {
+    const { error } = await supabase.rpc('delete_my_account');
+    if (error) throw error;
+    remove('sidecourt.outbox'); // games waiting to upload were recorded by this account
+    await supabase.auth.signOut({ scope: 'local' }); // the account is gone; just forget it here
+    this.user = null;
+    this.profile = null;
   }
 
   // Forgot the key: email a link that signs them in so they can get a new key.

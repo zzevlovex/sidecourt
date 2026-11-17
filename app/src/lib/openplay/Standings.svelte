@@ -1,7 +1,8 @@
 <script>
+  import Icon from '$lib/components/Icon.svelte';
   // Final standings after open play ends: podium, full ranking, every game.
   import { toast } from '$lib/toasts.svelte.js';
-  import { plural, medal, pct, signed } from '$lib/format.js';
+  import { plural, pct, signed } from '$lib/format.js';
   import ResultRow from './ResultRow.svelte';
   import { showStandings } from './actions.js';
 
@@ -39,7 +40,7 @@
       {#each podiumOrder as p (p.name)}
         {@const place = Math.min(p.rank, 3)}
         <li class="podium-spot place-{place}">
-          <span class="podium-medal" aria-hidden="true">{medal(place)}</span>
+          <span class="podium-medal"><Icon name="trophy" size={place === 1 ? 36 : 28} /></span>
           <strong class="podium-name">{p.name}</strong>
           <span class="podium-stats">{p.wins}W · {p.losses}L{scored ? ` · ${signed(p.diff)} pts` : ''}</span>
           <span class="podium-block">{p.rank}</span>
@@ -63,7 +64,7 @@
       <ol class="rank-list">
         {#each ranked as p, i (p.name)}
           <li class={['rank-row', p.rank <= 3 && 'top']} style="--i: {Math.min(i, 12)}">
-            <span class="rank-num">{medal(p.rank) || p.rank}</span>
+            <span class="rank-num">{#if p.rank <= 3}<span class="rank-badge place-{p.rank}">{p.rank}</span>{:else}{p.rank}{/if}</span>
             <span class="grow"><strong>{p.name}</strong><span class="tag">{plural(p.played, 'game')} · {p.pointsFor} pts scored</span></span>
             <span class="rank-wl">{p.wins}–{p.losses}</span>
             <span class="rank-pct">{pct(p)}</span>
@@ -74,12 +75,15 @@
       {#if unplayed.length}
         <p class="muted small">Checked in but did not play: {unplayed.map((p) => p.name).join(', ')}</p>
       {/if}
-      <div class="legend">
+      <details class="more">
+        <summary>How the ranking works</summary>
+        <div class="legend">
         <p><strong>W–L</strong> wins and losses.</p>
         <p><strong>Pts +/−</strong> points scored minus points given up, across all scored games. <span class="pos">+6</span> means they scored 6 more than their opponents; <span class="neg">−4</span> means 4 fewer.</p>
         <p><strong>Order</strong> most wins first. Ties go to the higher win %, then the better Pts +/−.</p>
         <p class="muted">Games won by picking a winner (no score) count as a win but add no points. Games with no score and no winner count as played only.</p>
-      </div>
+        </div>
+      </details>
     </section>
   {/if}
 
@@ -93,7 +97,7 @@
   {/if}
 
   <div class="row wrap final-actions">
-    {#if ranked.length}<button class="btn btn-ghost" onclick={copyStandings}>Copy standings</button>{/if}
+    {#if ranked.length}<button class="btn btn-ghost" onclick={copyStandings}><Icon name="copy" size={18} /> Copy standings</button>{/if}
     <button class="btn btn-primary grow" onclick={() => showStandings(false)}>Start new open play</button>
   </div>
 </section>

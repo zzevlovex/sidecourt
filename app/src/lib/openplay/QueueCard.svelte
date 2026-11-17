@@ -1,4 +1,5 @@
 <script>
+  import Icon from '$lib/components/Icon.svelte';
   import { flip } from 'svelte/animate';
   import { fly } from 'svelte/transition';
   import { store } from '$lib/state.svelte.js';
@@ -20,10 +21,10 @@
   function details(entry) {
     const games = Math.min(...entry.p.map((n) => session.games[n] || 0));
     return [
-      entry.p.length === 2 ? '🤝 Partners' : 'Random teammate',
+      entry.p.length === 2 ? 'Partners' : 'Random teammate',
       `${plural(games, 'game')} played`,
       entry.addedBy ? `by ${entry.addedBy}` : '',
-      entry.p.some((n) => session.accounts?.[n]) ? '✓ Account' : '',
+      entry.p.some((n) => session.accounts?.[n]) ? 'Account linked' : '',
     ].filter(Boolean).join(' · ');
   }
 </script>
@@ -41,7 +42,7 @@
     </div>
   {:else}
     <p class="muted small">
-      Top of the line plays first. Use &uarr; to move someone up{session.allowPicks ? ', 🤝 Pair to team two players up' : ''}.
+      Top of the line plays first.{session.allowPicks ? ' Pair teams two players up.' : ''}
     </p>
   {/if}
 
@@ -77,7 +78,7 @@
             {#if entry.id === picking.id}
               <button class="pair-btn" onclick={() => (ui.pairing = null)}>Cancel</button>
             {:else if solo}
-              <button class="pair-btn pick" onclick={() => pairWith(entry.id)}>🤝 Pair with {picking.p[0]}</button>
+              <button class="pair-btn pick" onclick={() => pairWith(entry.id)}><Icon name="users" size={16} /> Pair with {picking.p[0]}</button>
             {/if}
           {:else}
             {#if session.allowPicks}
@@ -87,13 +88,13 @@
                   disabled={solos < 2}
                   title={solos < 2 ? 'Nobody else in the line to pair with' : undefined}
                   aria-label="Pair {who} with someone"
-                  onclick={() => (ui.pairing = entry.id)}>🤝 Pair</button>
+                  onclick={() => (ui.pairing = entry.id)}><Icon name="users" size={16} /> Pair</button>
               {:else}
                 <button class="pair-btn" aria-label="Split {who} into random teammates" onclick={() => split(entry)}>Split</button>
               {/if}
             {/if}
-            <button class="icon-btn" aria-label="Move {who} up" disabled={index === 0} onclick={() => moveUp(entry.id)}>&uarr;</button>
-            <button class="icon-btn" aria-label="Remove {who}" onclick={() => removePlayer(entry)}>&times;</button>
+            <button class="icon-btn" aria-label="Move {who} up" disabled={index === 0} onclick={() => moveUp(entry.id)}><Icon name="arrow-up" size={18} /></button>
+            <button class="icon-btn" aria-label="Remove {who}" onclick={() => removePlayer(entry)}><Icon name="x" size={18} /></button>
           {/if}
         </span>
       </li>

@@ -1,4 +1,5 @@
 <script>
+  import Icon from '$lib/components/Icon.svelte';
   import { resolve } from '$app/paths';
   import { account } from '$lib/account.svelte.js';
   import { toast } from '$lib/toasts.svelte.js';
@@ -15,6 +16,8 @@
   // A brand-new key, shown once until the person confirms they saved it.
   let shownKey = $state('');
   let saved = $state(false);
+  let confirmDelete = $state('');
+  let tab = $state('new'); // signed out: 'new' or 'key'
 
   // Runs an action, shows its error next to the form, blocks double taps.
   async function run(action) {
@@ -61,7 +64,7 @@
       <code class="the-key">{shownKey}</code>
       <p class="warn-text">Save it now: a password manager, a photo, or written down. It is shown only once, and it is the only way into your account unless you add an email.</p>
       <div class="row wrap">
-        <button class="btn btn-ghost" onclick={copyKey}>Copy key</button>
+        <button class="btn btn-ghost" onclick={copyKey}><Icon name="copy" size={18} /> Copy key</button>
       </div>
       <label class="option"><input type="checkbox" bind:checked={saved} /><span><strong>I saved my key</strong></span></label>
       <button class="btn btn-primary" disabled={!saved} onclick={() => (shownKey = '')}>Continue</button>
@@ -97,7 +100,7 @@
 
     <MyGames />
 
-    <section class="card stack">
+    <section class="card stack quiet">
       <h2 class="section-title">Recovery email</h2>
       {#if account.email}
         <p>Recovery email: <strong>{account.email}</strong></p>
@@ -108,36 +111,51 @@
         {/if}
         <form class="row wrap" onsubmit={(e) => { e.preventDefault(); run(async () => { await account.addEmail(emailInput); toast('Check your inbox to confirm the email.', { type: 'success' }); emailInput = ''; }); }}>
           <input class="grow" type="email" bind:value={emailInput} placeholder="you@example.com" autocomplete="email" required aria-label="Email" />
-          <button class="btn btn-primary" disabled={busy}>Add email</button>
+          <button class="btn btn-light" disabled={busy}>Add email</button>
         </form>
       {/if}
     </section>
 
-    <section class="card stack">
+    <section class="card stack quiet">
       <h2 class="section-title">Key</h2>
       <p class="muted small">Think someone saw your key? Get a new one. The old key stops working right away.</p>
       <button class="btn btn-ghost" disabled={busy} onclick={() => run(async () => showKey(await account.replaceKey()))}>Get a new key</button>
     </section>
+
+    <details class="card fold danger-zone">
+      <summary><span class="section-label">Delete my account</span></summary>
+      <div class="stack fold-body">
+        <p class="muted small">This permanently deletes your account, your key, your player code and your link to every game. Other players keep their own past games, with your name as it was written on the day. This cannot be undone.</p>
+        <label>Type <strong>DELETE</strong> to confirm
+          <input bind:value={confirmDelete} autocomplete="off" autocapitalize="characters" spellcheck="false" />
+        </label>
+        <button
+          class="btn btn-danger"
+          disabled={busy || confirmDelete.trim().toUpperCase() !== 'DELETE'}
+          onclick={() => run(async () => { await account.deleteAccount(); confirmDelete = ''; toast('Your account was deleted.', { type: 'success' }); })}
+        >Delete my account forever</button>
+      </div>
+    </details>
     {#if error}<p class="form-error" role="alert">{error}</p>{/if}
   {:else if account.user}
     <p class="muted">Loading your profile…</p>
   {:else}
     <!-- Signed out -->
-    <div class="account-choices">
-      <section class="card stack">
-        <h2 class="section-title">New here</h2>
+    <section class="card stack account-entry">
+      <div class="segmented" role="tablist" aria-label="Account">
+        <button role="tab" aria-selected={tab === 'new'} class={[tab === 'new' && 'on']} onclick={() => { tab = 'new'; error = ''; }}>New here</button>
+        <button role="tab" aria-selected={tab === 'key'} class={[tab === 'key' && 'on']} onclick={() => { tab = 'key'; error = ''; }}>I have a key</button>
+      </div>
+      {#if tab === 'new'}
         <form class="stack" onsubmit={(e) => { e.preventDefault(); run(async () => showKey(await account.create(name))); }}>
           <label>Your name <input bind:value={name} maxlength="40" placeholder="As players know you" autocomplete="nickname" required /></label>
-          <button class="btn btn-primary" disabled={busy}>Create my account</button>
+          <button class="btn btn-primary btn-big" disabled={busy}>Create my account</button>
+          <span class="hint">You get a key to save. No email or password needed.</span>
         </form>
-      </section>
-
-      <section class="card stack">
-        <h2 class="section-title">I have a key</h2>
-        {#if !forgot}
+      {:else if !forgot}
           <form class="stack" onsubmit={(e) => { e.preventDefault(); run(async () => { await account.signIn(keyInput); keyInput = ''; toast('Signed in.', { type: 'success' }); }); }}>
             <label>Your key <input bind:value={keyInput} placeholder="ABCD-EFGH-JKMN-PQRS" autocomplete="current-password" autocapitalize="characters" spellcheck="false" required /></label>
-            <button class="btn btn-primary" disabled={busy}>Sign in</button>
+            <button class="btn btn-primary btn-big" disabled={busy}>Sign in</button>
           </form>
           <button class="link-btn" onclick={() => (forgot = true)}>Forgot your key?</button>
         {:else}
@@ -147,9 +165,8 @@
             <button class="btn btn-primary" disabled={busy}>Email me a link</button>
           </form>
           <button class="link-btn" onclick={() => (forgot = false)}>Back to sign in</button>
-        {/if}
-      </section>
-    </div>
-    {#if error}<p class="form-error" role="alert">{error}</p>{/if}
+      {/if}
+      {#if error}<p class="form-error" role="alert">{error}</p>{/if}
+    </section>
   {/if}
 </section>

@@ -3,7 +3,7 @@
   import Modal from '$lib/components/Modal.svelte';
   import { store } from '$lib/state.svelte.js';
   import { finishSession } from '$lib/logic/queue.js';
-  import { plural, medal } from '$lib/format.js';
+  import { plural } from '$lib/format.js';
   import { ui } from './ui.svelte.js';
   import { scoreInProgress, liveScoresToCount, confirmEnd } from './actions.js';
 
@@ -53,7 +53,7 @@
       {#if top.length}
         <ol class="mini-podium">
           {#each top as p (p.name)}
-            <li><span aria-hidden="true">{medal(p.rank)}</span><strong>{p.name}</strong><span class="muted small">{p.wins}W {p.losses}L</span></li>
+            <li><span class="rank-badge place-{p.rank}">{p.rank}</span><strong>{p.name}</strong><span class="muted small">{p.wins}W {p.losses}L</span></li>
           {/each}
         </ol>
       {:else}

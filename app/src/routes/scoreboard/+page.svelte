@@ -1,4 +1,5 @@
 <script>
+  import Icon from '$lib/components/Icon.svelte';
   // Scoreboard. Works on its own, or for a court in open play (/scoreboard?court=1).
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
@@ -40,7 +41,7 @@
   const nextGame = $derived(courtId && session ? upcoming(session, 1)[0] ?? null : null);
 
   function status(side) {
-    if (won) return won === side ? '🏆 Winner' : '';
+    if (won) return won === side ? 'Winner' : '';
     if (match.serving !== side) return 'Receiving';
     if (badminton) return `Serving · ${serviceCourt(match)}`;
     return match.doubles ? `Serving · Server ${match.server}` : 'Serving';
@@ -153,7 +154,7 @@
 
     {#if won}
       <section class="win-card pop">
-        <span class="trophy" aria-hidden="true">🏆</span>
+        <span class="trophy"><Icon name="trophy" size={36} /></span>
         <div class="grow">
           <span class="label">{badminton ? 'Match' : 'Game'} over · {badminton ? `${match.games.a}–${match.games.b} in games` : `${match.a}–${match.b}`}</span>
           <h2>{match.names[won]} win!</h2>
@@ -174,7 +175,7 @@
             class="icon-btn small"
             aria-label="Read the score out loud"
             title="Read the score out loud"
-            onclick={() => speak(badminton ? `${match[match.serving]}, ${match[other(match.serving)]}` : callText(match).replaceAll('–', ','))}>🔊</button>
+            onclick={() => speak(badminton ? `${match[match.serving]}, ${match[other(match.serving)]}` : callText(match).replaceAll('–', ','))}><Icon name="volume" size={18} /></button>
         </div>
         <div class="call" aria-label="Score call {callParts.join(', ')}">
           {#each callParts as n, i (i)}
@@ -204,7 +205,7 @@
         >
           <span class="side-info">
             <span class="side-name">{match.names[side]}</span>
-            <span class="side-status">{#if serving}<span class="ball" aria-hidden="true"></span>{/if}{status(side)}</span>
+            <span class="side-status">{#if serving}<span class="ball" aria-hidden="true"></span>{/if}{#if won === side}<Icon name="trophy" size={16} />{/if}{status(side)}</span>
             {#if badminton}
               <span class="games" aria-label="{match.games[side]} games won">
                 {#each Array.from({ length: Math.ceil(match.bestOf / 2) }) as _, i (i)}
@@ -230,7 +231,7 @@
 
     <p class="muted center small keys">Keyboard: <kbd>A</kbd> or <kbd>←</kbd> side A · <kbd>B</kbd> or <kbd>→</kbd> side B · <kbd>U</kbd> undo</p>
     <div class="controls">
-      <button class="btn btn-light btn-big" disabled={!match.history.length} onclick={doUndo}>↶ Undo</button>
+      <button class="btn btn-light btn-big" disabled={!match.history.length} onclick={doUndo}><Icon name="undo" /> Undo</button>
       <button class="btn btn-ghost" disabled={!match.history.length} onclick={restart}>Restart</button>
       {#if !courtId}<button class="btn btn-ghost" onclick={clearMatch}>New match</button>{/if}
     </div>

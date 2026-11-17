@@ -23,7 +23,7 @@
   <article class={['card court free', ready && 'ready']}>
     <div class="row between"><h3 class="court-name">Court {court.id}</h3><span class="status go">Free</span></div>
     <p class="muted small">{ready ? 'The next game is ready to go on.' : 'Waiting for 4 players in the line.'}</p>
-    <button class="btn {ready ? 'btn-primary' : 'btn-ghost'}" disabled={!ready} onclick={() => sendToCourt(court.id)}>Send next game here</button>
+    <button class="btn {ready ? 'btn-light' : 'btn-ghost'}" disabled={!ready} onclick={() => sendToCourt(court.id)}>Send next game here</button>
   </article>
 {:else}
   {@const [a, b] = court.teams}

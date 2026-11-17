@@ -1,4 +1,5 @@
 <script>
+  import Icon from '$lib/components/Icon.svelte';
   import '../app.css';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
@@ -29,7 +30,7 @@
   <div class="top-inner">
     <div class="row">
       {#if !home}
-        <a class="btn btn-ghost btn-small back-btn" href={back.href} aria-label="Back to {back.label}">← {back.label}</a>
+        <a class="btn btn-ghost btn-small back-btn" href={back.href} aria-label="Back to {back.label}"><Icon name="arrow-left" size={18} /> {back.label}</a>
       {/if}
       <a class="brand" href={resolve('/')}>Sidecourt</a>
     </div>

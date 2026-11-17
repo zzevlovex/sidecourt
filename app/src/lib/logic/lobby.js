@@ -1,9 +1,11 @@
 // Pure helpers for lobbies (no network), so they can be tested in Node.
 
 // What players may see: everything except which account each name belongs to.
+// All results stay in: fair matchmaking reads them, so "Up next" in the lobby
+// matches the manager's board exactly.
 export function publicState(session) {
   const { accounts, ...rest } = session;
-  return { ...rest, results: rest.results.slice(0, 10) };
+  return rest;
 }
 
 // Reads a scanned QR or typed text: a full Sidecourt link or a bare 6-letter code.

@@ -1,4 +1,5 @@
 <script>
+  import Icon from '$lib/components/Icon.svelte';
   // The lobby code and QR players scan to follow open play and join the line.
   import { resolve } from '$app/paths';
   import Modal from '$lib/components/Modal.svelte';
@@ -34,7 +35,7 @@
     <p class="hint">Players open the camera and scan, or go to Sidecourt, then <strong>Join open play</strong>, and type the code. They see the courts, who's next and their place in line, and can tap <strong>Join the line</strong>.</p>
     <div class="row wrap end-actions">
       <button class="btn btn-ghost" type="button" onclick={onclose}>Close</button>
-      <button class="btn btn-primary grow" type="button" onclick={share}>{navigator.share ? 'Share link' : 'Copy link'}</button>
+      <button class="btn btn-primary grow" type="button" onclick={share}><Icon name={navigator.share ? 'share' : 'copy'} size={18} /> {navigator.share ? 'Share link' : 'Copy link'}</button>
     </div>
   </div>
 </Modal>

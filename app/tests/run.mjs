@@ -1,7 +1,7 @@
 // Quick checks for the rules. Run with:  node tests/run.mjs
 import assert from 'node:assert/strict';
 import { newMatch, rally, undo, winner, callText, serviceCourt, isGamePoint } from '../src/lib/logic/scoring.js';
-import { newSession, addPlayers, fillCourt, endGame, pickNext, setAllowPicks, waitingCount, playingCount, moveUp, removeEntry, upcoming, reshuffle, rankings, finishSession, pairUp, splitPair } from '../src/lib/logic/queue.js';
+import { newSession, addPlayers, fillCourt, endGame, pickNext, setAllowPicks, waitingCount, playingCount, moveUp, removeEntry, upcoming, reshuffle, rankings, finishSession, pairUp, splitPair, playHistory, splitCost } from '../src/lib/logic/queue.js';
 
 import qrcode from 'qrcode-generator';
 import jsQR from 'jsqr';
@@ -185,7 +185,7 @@ assert.deepEqual([rows[0].players_a, rows[0].players_b, rows[0].score_a, rows[0]
 // Lobby: players never see account ids; codes read from links or typed text.
 const pub = publicState({ name: 'X', accounts: { Ana: 'secret-id' }, results: Array.from({ length: 15 }, (_, i) => i), queue: [] });
 assert.equal(pub.accounts, undefined);
-assert.equal(pub.results.length, 10);
+assert.equal(pub.results.length, 15);
 assert.equal(codeFrom('https://sidecourt.netlify.app/lobby?code=abc234'), 'ABC234');
 assert.equal(codeFrom(' zmz efh '), 'ZMZEFH');
 assert.equal(codeFrom('https://example.com/no-code'), null);
@@ -209,6 +209,30 @@ assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
   const read = jsQR(pixels, size, size);
   assert.equal(read?.data, link);
   assert.equal(codeFrom(read.data), 'ZMZEFH');
+}
+
+// Fair matchmaking: no repeat partners, balanced skill, and Shuffle still varies.
+{
+  const past = [
+    { teams: [['A', 'B'], ['C', 'D']], score: { a: 11, b: 2 } }, // A & B partnered (and won big)
+  ];
+  const h = playHistory(past);
+  assert.equal(h.partners('B', 'A'), 1);
+  assert.equal(h.opponents('A', 'C'), 1);
+  assert.ok(h.skill('A') > 0.5 && h.skill('C') < 0.5);
+  assert.ok(splitCost(['A', 'B'], ['C', 'D'], h) > splitCost(['A', 'C'], ['B', 'D'], h));
+
+  // Every random draw: A and B (last game's partners and both winners) are split up.
+  let f = addPlayers(newSession({ courts: 1 }), ['A', 'B', 'C', 'D']);
+  f = { ...f, results: past };
+  for (const r of [0, 0.3, 0.6, 0.99]) {
+    const teams = fillCourt(f, 1, () => r).courts[0].teams.map((t) => t.p.slice().sort().join());
+    assert.ok(!teams.includes('A,B') && !teams.includes('C,D'), `random ${r}: ${teams}`);
+  }
+  // No history: all 3 splits are equally fair, so different seeds give different teams.
+  const fresh = addPlayers(newSession({ courts: 1 }), ['A', 'B', 'C', 'D']);
+  const seen = new Set([0, 0.4, 0.8].map((r) => fillCourt(fresh, 1, () => r).courts[0].teams.map((t) => t.p.slice().sort().join()).sort().join(' vs ')));
+  assert.equal(seen.size, 3);
 }
 
 console.log('All checks passed.');
