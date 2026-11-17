@@ -20,3 +20,17 @@ export function gameRows(summary, accounts = {}) {
       winner: r.winner ?? null,
     }));
 }
+
+// One row for the sessions table: the final standings of a finished open play,
+// readable later by the players who were checked in and by the host.
+// The summary holds names only; player_ids says whose history it belongs in.
+export function sessionRow(summary, accounts = {}, id) {
+  return {
+    id,
+    ended_at: summary.endedAt,
+    name: summary.name,
+    sport: summary.sport,
+    summary,
+    player_ids: [...new Set(Object.values(accounts))],
+  };
+}

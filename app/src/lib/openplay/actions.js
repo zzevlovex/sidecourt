@@ -13,7 +13,7 @@ import {
 import { ui, drafts } from './ui.svelte.js';
 import { supabase } from '$lib/supabase.js';
 import { account } from '$lib/account.svelte.js';
-import { queueGames } from '$lib/history.svelte.js';
+import { queueSession, discardSession } from '$lib/history.svelte.js';
 import { closeLobby, pendingJoins, clearJoin } from '$lib/lobby.svelte.js';
 import { publicState } from '$lib/logic/lobby.js';
 
@@ -232,7 +232,7 @@ export function confirmEnd() {
   const before = store.session;
   const summary = finishSession(before, liveScoresToCount());
   store.setSummary(summary);
-  queueGames(summary, before.accounts); // players checked in by code get these games in their history
+  const savedId = queueSession(summary, before.accounts); // saved to the host's and the checked-in players' history
   closeLobby(before.lobby, publicState({ ...before, results: summary.results })).catch(() => {});
   ui.ending = false;
   ui.pairing = null;
@@ -244,6 +244,7 @@ export function confirmEnd() {
   toast('Open play ended. Here are the final standings.', {
     type: 'success',
     onUndo: () => {
+      discardSession(savedId).catch(() => {});
       store.setSummary(null);
       showStandings(false);
       store.setSession(before);

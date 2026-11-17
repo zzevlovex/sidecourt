@@ -7,7 +7,7 @@ import { shareCards, overallStats, playerMatches, closestGames } from '../src/li
 import qrcode from 'qrcode-generator';
 import jsQR from 'jsqr';
 import { publicState, codeFrom } from '../src/lib/logic/lobby.js';
-import { gameRows } from '../src/lib/logic/history.js';
+import { gameRows, sessionRow } from '../src/lib/logic/history.js';
 import { newKey, newPlayerCode, parseKey, keyEmail, ALPHABET } from '../src/lib/logic/keys.js';
 
 const play = (match, sides) => [...sides].reduce((m, s) => rally(m, s), match);
@@ -182,6 +182,10 @@ const rows = gameRows({
 }, { Ben: 'u-ben', Dee: 'u-dee' });
 assert.equal(rows.length, 1);
 assert.deepEqual([rows[0].players_a, rows[0].players_b, rows[0].score_a, rows[0].winner], [['u-ben'], ['u-dee'], 11, 'a']);
+// Session row: one per finished open play; each linked account listed once.
+const srow = sessionRow({ name: 'Tue', sport: 'pickleball', endedAt: '2026-11-17T12:00:00Z', results: [], standings: [] }, { Ben: 'u-ben', 'Ben (ABCD)': 'u-ben', Dee: 'u-dee' }, 'sess-1');
+assert.deepEqual([srow.id, srow.name, srow.ended_at, srow.player_ids], ['sess-1', 'Tue', '2026-11-17T12:00:00Z', ['u-ben', 'u-dee']]);
+assert.equal(srow.summary.name, 'Tue');
 
 // Lobby: players never see account ids; codes read from links or typed text.
 const pub = publicState({ name: 'X', accounts: { Ana: 'secret-id' }, results: Array.from({ length: 15 }, (_, i) => i), queue: [] });

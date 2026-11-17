@@ -2,9 +2,10 @@
   import Icon from '$lib/components/Icon.svelte';
   // Final standings after open play ends: podium, full ranking, every game.
   import { toast } from '$lib/toasts.svelte.js';
-  import { plural, pct, signed } from '$lib/format.js';
+  import { plural, signed } from '$lib/format.js';
   import ResultRow from './ResultRow.svelte';
   import ShareDialog from './ShareDialog.svelte';
+  import RankingList from './RankingList.svelte';
   import { showStandings } from './actions.js';
 
   let { summary: s } = $props();
@@ -60,20 +61,7 @@
   {#if ranked.length}
     <section class="card stack">
       <h2 class="section-title">Rankings</h2>
-      <div class="rank-row rank-head" aria-hidden="true">
-        <span>#</span><span>Player</span><span>W–L</span><span class="rank-pct">Win %</span><span class="rank-diff">Pts +/−</span>
-      </div>
-      <ol class="rank-list">
-        {#each ranked as p, i (p.name)}
-          <li class={['rank-row', p.rank <= 3 && 'top']} style="--i: {Math.min(i, 12)}">
-            <span class="rank-num">{#if p.rank <= 3}<span class="rank-badge place-{p.rank}">{p.rank}</span>{:else}{p.rank}{/if}</span>
-            <span class="grow"><strong>{p.name}</strong><span class="tag">{plural(p.played, 'game')} · {p.pointsFor} pts scored</span></span>
-            <span class="rank-wl">{p.wins}–{p.losses}</span>
-            <span class="rank-pct">{pct(p)}</span>
-            <span class={['rank-diff', p.diff > 0 && 'pos', p.diff < 0 && 'neg']} title="Scored {p.pointsFor}, gave up {p.pointsAgainst}">{signed(p.diff)}</span>
-          </li>
-        {/each}
-      </ol>
+      <RankingList {ranked} />
       {#if unplayed.length}
         <p class="muted small">Checked in but did not play: {unplayed.map((p) => p.name).join(', ')}</p>
       {/if}

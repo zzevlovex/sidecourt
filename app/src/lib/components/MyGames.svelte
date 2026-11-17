@@ -3,8 +3,11 @@
   import { account } from '$lib/account.svelte.js';
   import { myGames } from '$lib/history.svelte.js';
 
+  const STEP = 5; // shown at first, and added by each "See more"
+
   let games = $state(null);
   let failed = $state(false);
+  let shown = $state(STEP);
 
   $effect(() => {
     if (!account.user) return;
@@ -35,7 +38,7 @@
       <span class="stat-chip"><strong>{losses}</strong> {losses === 1 ? 'loss' : 'losses'}</span>
     </div>
     <ul class="results">
-      {#each games as g (g.id)}
+      {#each games.slice(0, shown) as g (g.id)}
         {@const mine = side(g)}
         {@const r = result(g)}
         <li class="res-row">
@@ -55,5 +58,10 @@
         </li>
       {/each}
     </ul>
+    {#if games.length > shown}
+      <button class="btn btn-small btn-ghost see-more" onclick={() => (shown += STEP * 2)}>See more ({games.length - shown} left)</button>
+    {:else if games.length >= 200}
+      <p class="hint">Showing your latest 200 games.</p>
+    {/if}
   {/if}
 </section>

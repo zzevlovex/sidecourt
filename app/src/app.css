@@ -633,3 +633,13 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px soli
 .share-preview.checker { background: repeating-conic-gradient(#3a4466 0% 25%, #262d45 0% 50%) 50% / 24px 24px; }
 .share-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 12px; }
 .link-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---------- Account history ---------- */
+.session-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.session-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: var(--r-md); background: var(--raised); }
+.session-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 220px; }
+.session-main strong { overflow-wrap: anywhere; }
+.session-me { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.875rem; font-weight: 600; }
+.session-actions { display: flex; gap: 8px; }
+.see-more { align-self: center; }
+.rank-row.me { border: 1px solid var(--orange); }

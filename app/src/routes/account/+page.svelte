@@ -4,6 +4,7 @@
   import { account } from '$lib/account.svelte.js';
   import { toast } from '$lib/toasts.svelte.js';
   import MyGames from '$lib/components/MyGames.svelte';
+  import MySessions from '$lib/components/MySessions.svelte';
   import QrCode from '$lib/components/QrCode.svelte';
 
   let name = $state('');
@@ -97,6 +98,8 @@
         </div>
       </div>
     </section>
+
+    <MySessions />
 
     <MyGames />
 

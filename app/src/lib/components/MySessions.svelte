@@ -1,0 +1,92 @@
+<script>
+  // Open play history: sessions the signed-in person played in or hosted.
+  // Each one can show its ranking again and make share cards.
+  import { account } from '$lib/account.svelte.js';
+  import { mySessions } from '$lib/history.svelte.js';
+  import { plural } from '$lib/format.js';
+  import Icon from './Icon.svelte';
+  import Modal from './Modal.svelte';
+  import RankingList from '$lib/openplay/RankingList.svelte';
+  import ShareDialog from '$lib/openplay/ShareDialog.svelte';
+
+  const STEP = 3; // shown at first, and added by each "See more"
+
+  let sessions = $state(null);
+  let failed = $state(false);
+  let shown = $state(STEP);
+  let ranking = $state(null); // session whose ranking is open
+  let sharing = $state(null); // session whose share cards are open
+
+  $effect(() => {
+    if (!account.user) return;
+    failed = false;
+    mySessions().then((rows) => (sessions = rows)).catch(() => (failed = true));
+  });
+
+  const myName = $derived(account.profile?.display_name ?? null);
+  // A shared name gets " (XXXX)" added by the host's app.
+  const isMe = (name) => Boolean(myName) && (name === myName || name.startsWith(`${myName} (`));
+  const mine = (s) => s.summary.standings.find((p) => p.played && isMe(p.name)) ?? null;
+  const ranked = (s) => s.summary.standings.filter((p) => p.played);
+  const day = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+</script>
+
+<section class="card stack">
+  <div class="row between">
+    <h2 class="section-title">Open play history</h2>
+    {#if sessions?.length}<span class="muted small">{plural(sessions.length, 'session')}</span>{/if}
+  </div>
+
+  {#if failed}
+    <p class="form-error">Could not load your open play history. Check your connection.</p>
+  {:else if !sessions}
+    <p class="muted small">Loading…</p>
+  {:else if !sessions.length}
+    <p class="muted small">No sessions yet. A session appears here when an open play you joined or hosted ends.</p>
+  {:else}
+    <ul class="session-list">
+      {#each sessions.slice(0, shown) as s (s.id)}
+        {@const me = mine(s)}
+        <li class="session-row">
+          <div class="session-main">
+            <strong>{s.name}</strong>
+            <span class="tag">{day(s.ended_at)} · {s.sport} · {plural(s.summary.games, 'game')}{s.manager_id === account.user.id ? ' · hosted' : ''}</span>
+            {#if me}
+              <span class="session-me">
+                <span class="rank-badge place-{Math.min(me.rank, 4)}">{me.rank}</span>
+                <span>{me.wins}W – {me.losses}L of {plural(ranked(s).length, 'player')}</span>
+              </span>
+            {/if}
+          </div>
+          <div class="session-actions">
+            <button class="btn btn-small btn-ghost" disabled={!ranked(s).length} onclick={() => (ranking = s)}><Icon name="trophy" size={16} /> Ranking</button>
+            <button class="btn btn-small btn-ghost" disabled={!ranked(s).length} onclick={() => (sharing = s)}><Icon name="share" size={16} /> Share</button>
+          </div>
+        </li>
+      {/each}
+    </ul>
+    {#if sessions.length > shown}
+      <button class="btn btn-small btn-ghost see-more" onclick={() => (shown += STEP)}>See more ({sessions.length - shown} left)</button>
+    {/if}
+  {/if}
+</section>
+
+{#if ranking}
+  <Modal onclose={() => (ranking = null)} labelledby="ranking-title">
+    <div class="stack">
+      <div>
+        <p class="eyebrow">Final standings · {day(ranking.ended_at)}</p>
+        <h2 id="ranking-title">{ranking.name}</h2>
+      </div>
+      <RankingList ranked={ranked(ranking)} highlight={isMe} />
+      <div class="row wrap end-actions">
+        <button class="btn btn-ghost" type="button" onclick={() => (ranking = null)}>Close</button>
+        <button class="btn btn-light grow" type="button" onclick={() => { sharing = ranking; ranking = null; }}><Icon name="share" size={18} /> Share cards</button>
+      </div>
+    </div>
+  </Modal>
+{/if}
+
+{#if sharing}
+  <ShareDialog summary={sharing.summary} onclose={() => (sharing = null)} />
+{/if}
