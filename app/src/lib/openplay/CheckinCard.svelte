@@ -4,6 +4,18 @@
   import { checkIn, checkInByCode } from './actions.js';
   import { resolve } from '$app/paths';
   import { account } from '$lib/account.svelte.js';
+  import Scanner from '$lib/components/Scanner.svelte';
+
+  // The built-in QR reader exists in Chrome on Android and some other browsers.
+  const canScan = typeof window !== 'undefined' && 'BarcodeDetector' in window;
+  let scanning = $state(false);
+  async function scanned(found) {
+    scanning = false;
+    code = found;
+    checking = true;
+    if (await checkInByCode(found)) code = '';
+    checking = false;
+  }
 
   let code = $state('');
   let checking = $state(false);
@@ -50,7 +62,11 @@
           />
         </label>
         <button class="btn btn-primary" disabled={checking}>Add</button>
+        {#if canScan}
+          <button class="btn btn-ghost" type="button" aria-label="Scan a player QR code" onclick={() => (scanning = true)}>Scan</button>
+        {/if}
       </form>
+      {#if scanning}<Scanner onscan={scanned} onclose={() => (scanning = false)} />{/if}
       <p class="hint">Players with a Sidecourt account: their games are saved to their history. No account? Type their name below.</p>
     {:else}
       <p class="hint"><a href={resolve('/account')}>Sign in</a> to check players in by their player code and save their games to their history.</p>

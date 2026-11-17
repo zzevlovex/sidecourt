@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { newMatch, rally, undo, winner, callText, serviceCourt, isGamePoint } from '../src/lib/logic/scoring.js';
 import { newSession, addPlayers, fillCourt, endGame, pickNext, setAllowPicks, waitingCount, playingCount, moveUp, removeEntry, upcoming, reshuffle, rankings, finishSession, pairUp, splitPair } from '../src/lib/logic/queue.js';
 
+import { publicState, codeFrom } from '../src/lib/logic/lobby.js';
 import { gameRows } from '../src/lib/logic/history.js';
 import { newKey, newPlayerCode, parseKey, keyEmail, ALPHABET } from '../src/lib/logic/keys.js';
 
@@ -178,5 +179,14 @@ const rows = gameRows({
 }, { Ben: 'u-ben', Dee: 'u-dee' });
 assert.equal(rows.length, 1);
 assert.deepEqual([rows[0].players_a, rows[0].players_b, rows[0].score_a, rows[0].winner], [['u-ben'], ['u-dee'], 11, 'a']);
+
+// Lobby: players never see account ids; codes read from links or typed text.
+const pub = publicState({ name: 'X', accounts: { Ana: 'secret-id' }, results: Array.from({ length: 15 }, (_, i) => i), queue: [] });
+assert.equal(pub.accounts, undefined);
+assert.equal(pub.results.length, 10);
+assert.equal(codeFrom('https://sidecourt.netlify.app/lobby?code=abc234'), 'ABC234');
+assert.equal(codeFrom(' zmz efh '), 'ZMZEFH');
+assert.equal(codeFrom('https://example.com/no-code'), null);
+assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
 
 console.log('All checks passed.');

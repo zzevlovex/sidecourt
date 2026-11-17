@@ -14,6 +14,8 @@ import { ui, drafts } from './ui.svelte.js';
 import { supabase } from '$lib/supabase.js';
 import { account } from '$lib/account.svelte.js';
 import { queueGames } from '$lib/history.svelte.js';
+import { closeLobby, pendingJoins, clearJoin } from '$lib/lobby.svelte.js';
+import { publicState } from '$lib/logic/lobby.js';
 
 const undoTo = (before) => () => store.setSession(before);
 
@@ -74,18 +76,34 @@ export async function checkInByCode(code) {
     toast(`No player has the code ${code.trim().toUpperCase()}.`, { type: 'warn' });
     return false;
   }
+  const name = addLinkedPlayer(player.display_name, player.player_id, drafts.addedBy.trim() || null);
+  if (name) toast(`${name} added to the line.`, { type: 'success' });
+  else toast(`${player.display_name} is already checked in.`, { type: 'warn' });
+  return Boolean(name);
+}
+
+// Adds a player who has an account. Returns the name used, or null if already in.
+function addLinkedPlayer(displayName, playerId, addedBy = null) {
   const session = store.session;
   const accounts = session.accounts ?? {};
-  if (Object.values(accounts).includes(player.player_id)) {
-    toast(`${player.display_name} is already checked in.`, { type: 'warn' });
-    return false;
+  if (Object.values(accounts).includes(playerId)) return null;
+  // Two different people can share a name: add part of their id to tell them apart.
+  const name = hasPlayer(session, displayName) ? `${displayName} (${playerId.slice(0, 4).toUpperCase()})` : displayName;
+  const next = addPlayers(session, [name], { addedBy });
+  store.setSession({ ...next, accounts: { ...accounts, [name]: playerId } });
+  return name;
+}
+
+// Players who tapped "Join the line" in the lobby: add them, then clear the request.
+export async function pullJoins() {
+  const code = store.session?.lobby;
+  if (!code || !account.user) return;
+  for (const join of await pendingJoins(code)) {
+    if (!store.session) return; // open play ended meanwhile
+    const name = addLinkedPlayer(join.display_name, join.player_id, 'lobby');
+    if (name) toast(`${name} joined from the lobby.`, { type: 'success' });
+    await clearJoin(code, join.player_id);
   }
-  // Two different people can share a name: add part of the code to tell them apart.
-  const name = hasPlayer(session, player.display_name) ? `${player.display_name} (${code.trim().toUpperCase().slice(0, 3)})` : player.display_name;
-  const next = addPlayers(session, [name], { addedBy: drafts.addedBy.trim() || null });
-  store.setSession({ ...next, accounts: { ...accounts, [name]: player.player_id } });
-  toast(`${name} added to the line.`, { type: 'success' });
-  return true;
 }
 
 /* ---------- Courts ---------- */
@@ -215,6 +233,7 @@ export function confirmEnd() {
   const summary = finishSession(before, liveScoresToCount());
   store.setSummary(summary);
   queueGames(summary, before.accounts); // players checked in by code get these games in their history
+  closeLobby(before.lobby, publicState({ ...before, results: summary.results })).catch(() => {});
   ui.ending = false;
   ui.pairing = null;
   drafts.scores = {};

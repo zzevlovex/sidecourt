@@ -8,7 +8,11 @@
   import { plural } from '$lib/format.js';
   import { upcoming, waitingCount, playingCount } from '$lib/logic/queue.js';
   import { ui } from '$lib/openplay/ui.svelte.js';
-  import { announce, setHelp } from '$lib/openplay/actions.js';
+  import { announce, setHelp, pullJoins, checkInByCode } from '$lib/openplay/actions.js';
+  import LobbyDialog from '$lib/openplay/LobbyDialog.svelte';
+  import { account } from '$lib/account.svelte.js';
+  import { POLL_MS } from '$lib/lobby.svelte.js';
+  import { codeFrom } from '$lib/logic/lobby.js';
   import SetupForm from '$lib/openplay/SetupForm.svelte';
   import Standings from '$lib/openplay/Standings.svelte';
   import CourtCard from '$lib/openplay/CourtCard.svelte';
@@ -33,7 +37,19 @@
   // Animations only for changes after the page has appeared, not on first load.
   settleSoon();
 
+  let lobbyOpen = $state(false);
+  // A player QR scanned with the phone camera: checked in once sign-in has loaded.
+  let scannedCode = $state(null);
+  $effect(() => {
+    if (scannedCode && account.ready && store.session) {
+      checkInByCode(scannedCode);
+      scannedCode = null;
+    }
+  });
+
   onMount(() => {
+    // Players who tapped "Join the line" in the lobby are added every few seconds.
+    const joins = setInterval(() => pullJoins().catch(() => {}), POLL_MS);
     // Coming back from the scoreboard: confirm what happened there.
     const params = page.url.searchParams;
     const scored = Number(params.get('scored'));
@@ -48,7 +64,10 @@
         ? `Court ${finished} result saved. Next game is on: ${court.teams.flatMap((t) => t.p).join(', ')}.`
         : `Court ${finished} result saved. Not enough players for the next game yet.`, { type: 'success', ms: 6000 });
     }
-    if (scored || finished) goto(resolve('/openplay'), { replaceState: true, noScroll: true, keepFocus: true });
+    // A player's QR scanned with the phone camera opens /openplay?code=XXXXXX.
+    scannedCode = codeFrom(params.get('code') ?? '');
+    if (scored || finished || scannedCode) goto(resolve('/openplay'), { replaceState: true, noScroll: true, keepFocus: true });
+    return () => clearInterval(joins);
   });
 </script>
 
@@ -76,6 +95,11 @@
       <span class="stat-chip"><strong>{playingCount(session)}</strong> playing</span>
       <span class="stat-chip"><strong>{waitingCount(session)}</strong> waiting</span>
       <span class={['stat-chip', free && 'go']}><strong>{free}/{session.courts.length}</strong> courts free</span>
+      {#if session.lobby}
+        <button class="btn btn-small btn-primary" onclick={() => (lobbyOpen = true)}>Lobby {session.lobby}</button>
+      {:else if account.user}
+        <span class="stat-chip">Creating lobby…</span>
+      {/if}
       <button class="btn btn-small btn-ghost end-btn" onclick={() => (ui.ending = true)}>End open play</button>
       <button class="help-btn" aria-expanded={ui.help} aria-label="How open play works" title="How open play works" onclick={() => setHelp(!ui.help)}>?</button>
     </div>
@@ -141,5 +165,6 @@
   </section>
 
   {#if ui.ending}<EndDialog />{/if}
+  {#if lobbyOpen && session.lobby}<LobbyDialog code={session.lobby} onclose={() => (lobbyOpen = false)} />{/if}
   {#if ui.finishing !== null}<FinishDialog />{/if}
 {/if}

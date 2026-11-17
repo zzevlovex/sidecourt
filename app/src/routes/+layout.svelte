@@ -3,6 +3,12 @@
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
   import Toasts from '$lib/components/Toasts.svelte';
+  import { onMount } from 'svelte';
+  import { startLobbySync } from '$lib/lobby.svelte.js';
+  import { account } from '$lib/account.svelte.js';
+
+  // Keeps the online lobby in step with the open play session on this device.
+  onMount(() => startLobbySync());
 
   let { children } = $props();
 
@@ -27,17 +33,13 @@
       {/if}
       <a class="brand" href={resolve('/')}>Sidecourt</a>
     </div>
-    <nav>
-      {#if path !== resolve('/openplay')}
-        <a class="btn btn-ghost" href={resolve('/openplay')}>Open play</a>
-      {/if}
-      {#if path !== resolve('/scoreboard')}
-        <a class="btn {home ? 'btn-primary' : 'btn-ghost'}" href={resolve('/scoreboard')}>Score a match</a>
-      {/if}
-      {#if path !== resolve('/account')}
-        <a class="btn btn-ghost" href={resolve('/account')}>Account</a>
-      {/if}
-    </nav>
+    <!-- Home is one tap away (logo / Back), so the header only needs the account -->
+    {#if path !== resolve('/account')}
+      <a class="account-chip" href={resolve('/account')}>
+        <span class="avatar" aria-hidden="true">{account.profile ? account.profile.display_name[0].toUpperCase() : '?'}</span>
+        <span>{account.profile ? account.profile.display_name : account.user ? 'Account' : 'Sign in'}</span>
+      </a>
+    {/if}
   </div>
 </header>
 <main class="page-wrap">

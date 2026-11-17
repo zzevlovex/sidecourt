@@ -3,6 +3,7 @@
   import { account } from '$lib/account.svelte.js';
   import { toast } from '$lib/toasts.svelte.js';
   import MyGames from '$lib/components/MyGames.svelte';
+  import QrCode from '$lib/components/QrCode.svelte';
 
   let name = $state('');
   let keyInput = $state('');
@@ -84,9 +85,13 @@
         <button class="btn btn-small btn-ghost" disabled={busy} onclick={() => run(() => account.signOut())}>Sign out</button>
       </div>
       <div class="player-code">
-        <span class="label">Player code</span>
-        <strong>{account.profile.player_code}</strong>
-        <span class="hint">Show this to the manager at check-in. It is safe to share: it cannot open your account.</span>
+        <!-- The QR is a link: the manager's Scan button or phone camera checks you in -->
+        <QrCode text="{location.origin}{resolve('/openplay')}?code={account.profile.player_code}" label="Player code {account.profile.player_code}" />
+        <div class="stack tight">
+          <span class="label">Player code</span>
+          <strong>{account.profile.player_code}</strong>
+          <span class="hint">Show this to the manager at check-in: they scan the QR or type the code. It is safe to share: it cannot open your account. Or join yourself from the lobby.</span>
+        </div>
       </div>
     </section>
 
