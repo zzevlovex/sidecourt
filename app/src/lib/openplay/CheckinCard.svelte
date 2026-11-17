@@ -1,7 +1,18 @@
 <script>
   import { store } from '$lib/state.svelte.js';
   import { ui, drafts } from './ui.svelte.js';
-  import { checkIn } from './actions.js';
+  import { checkIn, checkInByCode } from './actions.js';
+  import { resolve } from '$app/paths';
+  import { account } from '$lib/account.svelte.js';
+
+  let code = $state('');
+  let checking = $state(false);
+  async function submitCode(event) {
+    event.preventDefault();
+    checking = true;
+    if (await checkInByCode(code)) code = '';
+    checking = false;
+  }
 
   let input;
   const pairOk = $derived(store.session.allowPicks);
@@ -23,6 +34,29 @@
 
 <section class="card stack area-checkin">
   <h2 class="section-title">Check in players</h2>
+  {#if account.enabled}
+    <!-- Players with an account: their games go into their history -->
+    {#if account.user}
+      <form class="code-checkin" onsubmit={submitCode}>
+        <label class="grow">Player code
+          <input
+            bind:value={code}
+            placeholder="e.g. ZMZEFH"
+            maxlength="6"
+            autocapitalize="characters"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          />
+        </label>
+        <button class="btn btn-primary" disabled={checking}>Add</button>
+      </form>
+      <p class="hint">Players with a Sidecourt account: their games are saved to their history. No account? Type their name below.</p>
+    {:else}
+      <p class="hint"><a href={resolve('/account')}>Sign in</a> to check players in by their player code and save their games to their history.</p>
+    {/if}
+    <div class="or-line"><span>or by name</span></div>
+  {/if}
   <form class="stack" onsubmit={submit}>
     <label>Names
       <input

@@ -8,6 +8,16 @@
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const randomSeed = (random = Math.random) => Math.floor(random() * 4294967296) >>> 0;
 
+// Random id for a saved game (UUID v4), so an upload that is retried is never stored twice.
+// crypto.randomUUID would be shorter, but it only exists on https pages.
+export function newId() {
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
 // Small seeded random generator (mulberry32). The session stores the seed, so
 // the random teammates for the next game are decided ahead of time and the
 // manager can see them before calling the game.
@@ -234,6 +244,7 @@ export function endGame(session, courtId, score = null, random, winner = null) {
   if (!court || !court.teams.length) return next;
 
   next.results.unshift({
+    id: newId(), at: new Date().toISOString(),
     court: court.id, game: court.game, teams: court.teams.map((team) => team.p), score, winner: resultWinner(score, winner),
   });
   court.teams.forEach((team) => {
@@ -314,7 +325,10 @@ export function finishSession(session, liveScores = {}, endedAt = new Date().toI
   session.courts.forEach((court) => {
     const score = liveScores[court.id];
     if (court.teams.length && score) {
-      results.unshift({ court: court.id, game: court.game, teams: court.teams.map((t) => t.p), score, winner: resultWinner(score), unfinished: true });
+      results.unshift({
+        id: newId(), at: endedAt,
+        court: court.id, game: court.game, teams: court.teams.map((t) => t.p), score, winner: resultWinner(score), unfinished: true,
+      });
     }
   });
   return {

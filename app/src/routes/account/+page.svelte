@@ -2,6 +2,7 @@
   import { resolve } from '$app/paths';
   import { account } from '$lib/account.svelte.js';
   import { toast } from '$lib/toasts.svelte.js';
+  import MyGames from '$lib/components/MyGames.svelte';
 
   let name = $state('');
   let keyInput = $state('');
@@ -88,6 +89,8 @@
         <span class="hint">Show this to the manager at check-in. It is safe to share: it cannot open your account.</span>
       </div>
     </section>
+
+    <MyGames />
 
     <section class="card stack">
       <h2 class="section-title">Recovery email</h2>

@@ -23,6 +23,7 @@
       entry.p.length === 2 ? '🤝 Partners' : 'Random teammate',
       `${plural(games, 'game')} played`,
       entry.addedBy ? `by ${entry.addedBy}` : '',
+      entry.p.some((n) => session.accounts?.[n]) ? '✓ Account' : '',
     ].filter(Boolean).join(' · ');
   }
 </script>

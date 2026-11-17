@@ -11,6 +11,9 @@ import {
   fillCourt, endGame, reshuffle, finishSession, pairUp, splitPair, resultWinner,
 } from '$lib/logic/queue.js';
 import { ui, drafts } from './ui.svelte.js';
+import { supabase } from '$lib/supabase.js';
+import { account } from '$lib/account.svelte.js';
+import { queueGames } from '$lib/history.svelte.js';
 
 const undoTo = (before) => () => store.setSession(before);
 
@@ -51,6 +54,37 @@ export function checkIn() {
     ? `${fresh[0]} & ${fresh[1]} added as partners.`
     : `${fresh.length === 1 ? fresh[0] : plural(fresh.length, 'player')} added to the line.`;
   toast(skipped ? `${who} ${plural(skipped, 'name')} skipped (already checked in).` : who, { type: skipped ? 'info' : 'success' });
+  return true;
+}
+
+// Check in a player by their public code: adds them to the line, linked to
+// their account so their games go into their history. Returns true when added.
+export async function checkInByCode(code) {
+  if (!supabase || !account.user) {
+    toast('Sign in on the Account page to check players in by code.', { type: 'warn' });
+    return false;
+  }
+  const { data, error } = await supabase.rpc('check_in', { p_code: code.trim() });
+  if (error) {
+    toast('Could not check in. Check your connection and try again.', { type: 'warn' });
+    return false;
+  }
+  const player = data?.[0];
+  if (!player) {
+    toast(`No player has the code ${code.trim().toUpperCase()}.`, { type: 'warn' });
+    return false;
+  }
+  const session = store.session;
+  const accounts = session.accounts ?? {};
+  if (Object.values(accounts).includes(player.player_id)) {
+    toast(`${player.display_name} is already checked in.`, { type: 'warn' });
+    return false;
+  }
+  // Two different people can share a name: add part of the code to tell them apart.
+  const name = hasPlayer(session, player.display_name) ? `${player.display_name} (${code.trim().toUpperCase().slice(0, 3)})` : player.display_name;
+  const next = addPlayers(session, [name], { addedBy: drafts.addedBy.trim() || null });
+  store.setSession({ ...next, accounts: { ...accounts, [name]: player.player_id } });
+  toast(`${name} added to the line.`, { type: 'success' });
   return true;
 }
 
@@ -178,7 +212,9 @@ export function showStandings(show) {
 
 export function confirmEnd() {
   const before = store.session;
-  store.setSummary(finishSession(before, liveScoresToCount()));
+  const summary = finishSession(before, liveScoresToCount());
+  store.setSummary(summary);
+  queueGames(summary, before.accounts); // players checked in by code get these games in their history
   ui.ending = false;
   ui.pairing = null;
   drafts.scores = {};

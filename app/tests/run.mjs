@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { newMatch, rally, undo, winner, callText, serviceCourt, isGamePoint } from '../src/lib/logic/scoring.js';
 import { newSession, addPlayers, fillCourt, endGame, pickNext, setAllowPicks, waitingCount, playingCount, moveUp, removeEntry, upcoming, reshuffle, rankings, finishSession, pairUp, splitPair } from '../src/lib/logic/queue.js';
 
+import { gameRows } from '../src/lib/logic/history.js';
 import { newKey, newPlayerCode, parseKey, keyEmail, ALPHABET } from '../src/lib/logic/keys.js';
 
 const play = (match, sides) => [...sides].reduce((m, s) => rally(m, s), match);
@@ -161,5 +162,21 @@ assert.equal(parseKey('ABCD-EFGH-JKMN-PQR0'), null); // 0 is not in the alphabet
 assert.equal(newKey(() => new Uint8Array(16)), '2222-2222-2222-2222'); // byte 0 -> first letter
 assert.match(newPlayerCode(), /^[2-9A-HJ-NP-Z]{6}$/);
 assert.equal(keyEmail('ABCD2345'), 'abcd2345@keys.sidecourt.invalid');
+
+// Saved games get a UUID and a time, so uploads can be retried safely.
+assert.match(v.results[0].id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+assert.notEqual(v.results[0].id, v.results[1].id);
+assert.ok(!Number.isNaN(Date.parse(v.results[0].at)));
+
+// History rows: only games with a linked player, ids mapped per team.
+const rows = gameRows({
+  name: 'Tue', sport: 'pickleball', endedAt: '2026-11-17T12:00:00Z',
+  results: [
+    { id: 'g1', at: '2026-11-17T11:00:00Z', court: 1, teams: [['Ana', 'Ben'], ['Cy', 'Dee']], score: { a: 11, b: 5 }, winner: 'a' },
+    { id: 'g2', court: 2, teams: [['Eve', 'Fay'], ['Gus', 'Hal']], score: null, winner: null },
+  ],
+}, { Ben: 'u-ben', Dee: 'u-dee' });
+assert.equal(rows.length, 1);
+assert.deepEqual([rows[0].players_a, rows[0].players_b, rows[0].score_a, rows[0].winner], [['u-ben'], ['u-dee'], 11, 'a']);
 
 console.log('All checks passed.');
