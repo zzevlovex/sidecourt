@@ -6,8 +6,8 @@
   import { account } from '$lib/account.svelte.js';
   import Scanner from '$lib/components/Scanner.svelte';
 
-  // The built-in QR reader exists in Chrome on Android and some other browsers.
-  const canScan = typeof window !== 'undefined' && 'BarcodeDetector' in window;
+  // Any device with a camera can scan (built-in reader, or jsQR on iPhone and desktop).
+  const canScan = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia);
   let scanning = $state(false);
   async function scanned(found) {
     scanning = false;

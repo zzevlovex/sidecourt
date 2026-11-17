@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { newMatch, rally, undo, winner, callText, serviceCourt, isGamePoint } from '../src/lib/logic/scoring.js';
 import { newSession, addPlayers, fillCourt, endGame, pickNext, setAllowPicks, waitingCount, playingCount, moveUp, removeEntry, upcoming, reshuffle, rankings, finishSession, pairUp, splitPair } from '../src/lib/logic/queue.js';
 
+import qrcode from 'qrcode-generator';
+import jsQR from 'jsqr';
 import { publicState, codeFrom } from '../src/lib/logic/lobby.js';
 import { gameRows } from '../src/lib/logic/history.js';
 import { newKey, newPlayerCode, parseKey, keyEmail, ALPHABET } from '../src/lib/logic/keys.js';
@@ -188,5 +190,25 @@ assert.equal(codeFrom('https://sidecourt.netlify.app/lobby?code=abc234'), 'ABC23
 assert.equal(codeFrom(' zmz efh '), 'ZMZEFH');
 assert.equal(codeFrom('https://example.com/no-code'), null);
 assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
+
+// QR round trip: the QR the app draws (qrcode-generator) is readable by the
+// iPhone/desktop scanner (jsQR), and the scanned link gives back the code.
+{
+  const link = 'https://sidecourt.netlify.app/openplay?code=ZMZEFH';
+  const qr = qrcode(0, 'M');
+  qr.addData(link);
+  qr.make();
+  const cell = 4, margin = 4 * cell, n = qr.getModuleCount(), size = n * cell + 2 * margin;
+  const pixels = new Uint8ClampedArray(size * size * 4).fill(255);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const r = Math.floor((y - margin) / cell), c = Math.floor((x - margin) / cell);
+      if (r >= 0 && c >= 0 && r < n && c < n && qr.isDark(r, c)) pixels.fill(0, (y * size + x) * 4, (y * size + x) * 4 + 3);
+    }
+  }
+  const read = jsQR(pixels, size, size);
+  assert.equal(read?.data, link);
+  assert.equal(codeFrom(read.data), 'ZMZEFH');
+}
 
 console.log('All checks passed.');
