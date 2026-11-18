@@ -4,6 +4,7 @@
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
   import Toasts from '$lib/components/Toasts.svelte';
+  import Logo from '$lib/components/Logo.svelte';
   import { onMount } from 'svelte';
   import { startLobbySync } from '$lib/lobby.svelte.js';
   import { account } from '$lib/account.svelte.js';
@@ -19,7 +20,7 @@
   // a court's scoreboard goes back to the board, everything else to Home.
   const court = $derived(page.url.searchParams.get('court'));
   const back = $derived(
-    path === resolve('/scoreboard') && court
+    path === resolve('/scoreboard') && court && !page.url.searchParams.get('lobby') // a scorer's phone has no board to go back to
       ? { href: `${resolve('/openplay')}?scored=${court}`, label: 'Board' }
       : { href: resolve('/'), label: 'Home' },
   );
@@ -32,7 +33,7 @@
       {#if !home}
         <a class="btn btn-ghost btn-small back-btn" href={back.href} aria-label="Back to {back.label}"><Icon name="arrow-left" size={18} /> {back.label}</a>
       {/if}
-      <a class="brand" href={resolve('/')}>Sidecourt</a>
+      <a class="brand" href={resolve('/')}><Logo size={28} />Sidecourt</a>
     </div>
     <!-- Home is one tap away (logo / Back), so the header only needs the account -->
     {#if path !== resolve('/account')}

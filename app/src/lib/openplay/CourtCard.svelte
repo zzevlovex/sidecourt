@@ -5,7 +5,8 @@
   import { teamNames } from '$lib/format.js';
   import Matchup from './Matchup.svelte';
   import { drafts } from './ui.svelte.js';
-  import { sendToCourt, finishGame } from './actions.js';
+  import { sendToCourt, finishGame, shareScoring } from './actions.js';
+  import Icon from '$lib/components/Icon.svelte';
   import { enter } from '$lib/enter.js';
 
   // ready: a game is waiting to go on.
@@ -63,6 +64,7 @@
       <a class="btn btn-ghost grow" href="{resolve('/scoreboard')}?court={court.id}">{live ? 'Open scoreboard' : 'Keep score'}</a>
       <button class="btn btn-light grow" onclick={() => finishGame(court.id)}>Finish game</button>
     </div>
+    <button class="link-btn scorer-link" type="button" onclick={() => shareScoring(court.id)}><Icon name="qr" size={16} /> Let another phone keep score</button>
     <p class="hint">No score? You can just pick who won. Finishing sends these 4 to the back of the line.</p>
   </article>
 {/if}

@@ -5,7 +5,7 @@ import { supabase } from './supabase.js';
 import { account } from './account.svelte.js';
 import { store } from './state.svelte.js';
 import { newPlayerCode } from './logic/keys.js';
-import { publicState } from './logic/lobby.js';
+import { publicState, fitsCourt } from './logic/lobby.js';
 
 export const POLL_MS = 4000;
 
@@ -34,13 +34,19 @@ async function publish() {
   if (!canPublish()) return;
   const code = await ensureLobby();
   if (!store.session) return;
-  await supabase.from('lobbies').update({ state: publicState(store.session), open: true, updated_at: new Date().toISOString() }).eq('code', code);
+  const keys = store.session.scoreKeys;
+  await supabase.from('lobbies').update({
+    state: publicState(store.session), open: true, updated_at: new Date().toISOString(),
+    // Only sent once a scorer link exists, so lobbies keep working before 06_court_scores.sql is run.
+    ...(keys && Object.keys(keys).length ? { score_keys: keys } : {}),
+  }).eq('code', code);
 }
 
 // Called once by the layout: every change to the session is published shortly after.
 export function startLobbySync() {
   let timer;
-  return $effect.root(() => {
+  const scores = setInterval(() => pullScores().catch(() => {}), POLL_MS);
+  const stop = $effect.root(() => {
     $effect(() => {
       store.session; // re-run on every session change
       if (!canPublish()) return;
@@ -48,6 +54,39 @@ export function startLobbySync() {
       timer = setTimeout(() => publish().catch(() => {}), 800);
     });
   });
+  return () => {
+    stop();
+    clearInterval(scores);
+  };
+}
+
+/* ---------- Scorer links: another phone keeps score for one court ---------- */
+
+export async function fetchScores(code) {
+  const { data, error } = await supabase.rpc('get_court_scores', { p_code: code });
+  if (error) throw error;
+  return data ?? [];
+}
+
+// Returns false when the link is wrong or the open play has ended.
+export async function pushScore(code, court, key, match) {
+  const { data, error } = await supabase.rpc('set_court_score', { p_code: code, p_court: court, p_key: key, p_match: match });
+  if (error) throw error;
+  return data === true;
+}
+
+// Manager's device: bring in scores kept on other phones. A score is taken once
+// per change, so what the manager types or taps afterwards is not overwritten.
+const applied = {}; // court id -> updated_at already taken
+async function pullScores() {
+  const session = store.session;
+  if (!supabase || !session?.lobby || !Object.keys(session.scoreKeys ?? {}).length) return;
+  for (const row of await fetchScores(session.lobby)) {
+    const court = store.session?.courts.find((c) => c.id === row.court);
+    if (!court || !session.scoreKeys[row.court] || applied[row.court] === row.updated_at) continue;
+    applied[row.court] = row.updated_at;
+    if (fitsCourt(row.match, court)) store.setMatch(court.id, row.match);
+  }
 }
 
 export async function closeLobby(code, finalState) {

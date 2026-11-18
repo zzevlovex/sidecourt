@@ -1,6 +1,8 @@
 <script>
   import Icon from '$lib/components/Icon.svelte';
-  // Scoreboard. Works on its own, or for a court in open play (/scoreboard?court=1).
+  // Scoreboard. Works on its own, for a court in open play (/scoreboard?court=1),
+  // or on a helper's phone from a scorer link (/scoreboard?lobby=CODE&court=1&key=SECRET):
+  // then the court comes from the online lobby and every tap is sent to the manager's board.
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -10,25 +12,93 @@
   import { newMatch, rally, undo, winner, callText, isGamePoint, serviceCourt } from '$lib/logic/scoring.js';
   import { endGame, upcoming, waitingCount } from '$lib/logic/queue.js';
   import ScoreSetup from '$lib/scoreboard/ScoreSetup.svelte';
+  import { fetchLobby, fetchScores, pushScore, POLL_MS } from '$lib/lobby.svelte.js';
+  import { fitsCourt } from '$lib/logic/lobby.js';
 
   const courtId = $derived(Number(page.url.searchParams.get('court')) || null);
-  const session = $derived(courtId ? store.session : null);
+  /* ---------- Scorer link: this phone scores one court of someone else's open play ---------- */
+
+  const lobbyCode = $derived(page.url.searchParams.get('lobby'));
+  const scoreKey = $derived(page.url.searchParams.get('key'));
+  const remote = $derived(Boolean(lobbyCode && scoreKey && courtId));
+  let remoteSession = $state.raw(null);
+  let remoteMatch = $state.raw(null);
+  let remoteStatus = $state('loading'); // 'loading' | 'live' | 'closed' | 'error'
+
+  // Follow the lobby, so a new game on this court starts a new score by itself.
+  $effect(() => {
+    if (!remote) return;
+    const code = lobbyCode;
+    const id = courtId;
+    let first = true;
+    const tick = async () => {
+      try {
+        const row = await fetchLobby(code);
+        if (!row || !row.open) {
+          remoteStatus = 'closed';
+          return;
+        }
+        if (first) {
+          // Opened again mid-game: carry on from the score already sent.
+          const saved = (await fetchScores(code)).find((r) => r.court === id);
+          if (saved) remoteMatch = saved.match;
+          first = false;
+        }
+        remoteSession = row.state;
+        remoteStatus = 'live';
+      } catch {
+        if (first) remoteStatus = 'error';
+      }
+    };
+    tick();
+    const timer = setInterval(tick, POLL_MS);
+    return () => clearInterval(timer);
+  });
+
+  // Send the newest score; taps made while one is on its way go out next, in order.
+  let sending = false;
+  let queued = null;
+  async function push(next) {
+    queued = next;
+    if (sending) return;
+    sending = true;
+    while (queued) {
+      const m = queued;
+      queued = null;
+      try {
+        if (!(await pushScore(lobbyCode, courtId, scoreKey, m))) {
+          toast('This scoring link no longer works. Ask the manager for a new one.', { type: 'warn', key: 'push' });
+        }
+      } catch {
+        toast('No connection: the score is not reaching the board. It is sent with your next tap.', { type: 'warn', key: 'push' });
+      }
+    }
+    sending = false;
+  }
+
+  const session = $derived(remote ? remoteSession : courtId ? store.session : null);
   const court = $derived(session?.courts.find((c) => c.id === courtId) ?? null);
   // For a court, only the saved score of the game now on it counts.
-  const match = $derived(courtId ? store.courtMatch(court) : store.match(null));
+  const match = $derived(remote ? (fitsCourt(remoteMatch, court) ? remoteMatch : null) : courtId ? store.courtMatch(court) : store.match(null));
 
   // A court with a game on but no score yet starts at 0–0.
   $effect(() => {
-    if (courtId && court?.teams.length === 2 && !store.courtMatch(court)) {
-      const names = { a: court.teams[0].p.join(' / '), b: court.teams[1].p.join(' / ') };
-      store.setMatch(courtId, { ...newMatch({ sport: session.sport, doubles: true, names }), game: court.game });
-    }
+    if (!courtId || court?.teams.length !== 2 || match) return;
+    if (remote && remoteStatus !== 'live') return;
+    const names = { a: court.teams[0].p.join(' / '), b: court.teams[1].p.join(' / ') };
+    const fresh = { ...newMatch({ sport: session.sport, doubles: true, names }), game: court.game };
+    if (remote) remoteMatch = fresh;
+    else store.setMatch(courtId, fresh);
   });
 
   const other = (side) => (side === 'a' ? 'b' : 'a');
   const won = $derived(match ? winner(match) : null);
   const badminton = $derived(match?.sport === 'badminton');
-  const setMatch = (next) => store.setMatch(courtId, next);
+  const setMatch = (next) => {
+    if (!remote) return store.setMatch(courtId, next);
+    remoteMatch = next;
+    push(next);
+  };
 
   const title = $derived(courtId ? `Court ${courtId}` : badminton ? 'Badminton' : 'Pickleball');
   const rules = $derived(
@@ -137,11 +207,28 @@
 <svelte:window {onkeydown} />
 <svelte:document onvisibilitychange={keepAwake} />
 
-{#if courtId && !court?.teams.length}
+{#if remote && remoteStatus !== 'live'}
+  <section class="card narrow pop">
+    {#if remoteStatus === 'loading'}
+      <h1>Court {courtId}</h1>
+      <p class="muted">Loading the game…</p>
+    {:else if remoteStatus === 'closed'}
+      <h1>Open play has ended</h1>
+      <p class="muted">This scoring link is closed. Thanks for keeping score.</p>
+    {:else}
+      <h1>Could not load Court {courtId}</h1>
+      <p class="muted">Check your connection. This page tries again by itself every few seconds.</p>
+    {/if}
+  </section>
+{:else if courtId && !court?.teams.length}
   <section class="card narrow pop">
     <h1>Court {courtId} is open</h1>
-    <p class="muted">No game is running on this court yet.</p>
-    <a class="btn btn-primary" href={resolve('/openplay')}>Back to the board</a>
+    {#if remote}
+      <p class="muted">Waiting for the next game. The scoreboard appears by itself when the manager sends players here.</p>
+    {:else}
+      <p class="muted">No game is running on this court yet.</p>
+      <a class="btn btn-primary" href={resolve('/openplay')}>Back to the board</a>
+    {/if}
   </section>
 {:else if !match}
   {#if !courtId}<ScoreSetup onstart={startMatch} />{/if}
@@ -150,6 +237,7 @@
     <header class="board-head">
       <h1>{title}</h1>
       <p class="muted small">{rules}</p>
+      {#if remote}<p class="muted small">Your taps show live on the manager's board.</p>{/if}
     </header>
 
     {#if won}
@@ -159,7 +247,9 @@
           <span class="label">{badminton ? 'Match' : 'Game'} over · {badminton ? `${match.games.a}–${match.games.b} in games` : `${match.a}–${match.b}`}</span>
           <h2>{match.names[won]} win!</h2>
         </div>
-        {#if courtId}
+        {#if remote}
+          <p class="small">Sent to the board. The manager saves it and calls the next game.</p>
+        {:else if courtId}
           <button class="btn btn-dark btn-big" onclick={saveAndCallNext}>Save result &amp; call next</button>
         {:else}
           <button class="btn btn-dark btn-big" onclick={clearMatch}>New match</button>

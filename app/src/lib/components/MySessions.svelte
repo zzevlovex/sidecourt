@@ -11,7 +11,11 @@
 
   const STEP = 3; // shown at first, and added by each "See more"
 
-  let sessions = $state(null);
+  let { sport } = $props(); // only this sport's sessions are shown
+
+  let all = $state(null);
+  const sessions = $derived(all ? all.filter((s) => s.sport === sport) : null);
+  $effect(() => { sport; shown = STEP; }); // a new tab starts short again
   let failed = $state(false);
   let shown = $state(STEP);
   let ranking = $state(null); // session whose ranking is open
@@ -20,7 +24,7 @@
   $effect(() => {
     if (!account.user) return;
     failed = false;
-    mySessions().then((rows) => (sessions = rows)).catch(() => (failed = true));
+    mySessions().then((rows) => (all = rows)).catch(() => (failed = true));
   });
 
   const myName = $derived(account.profile?.display_name ?? null);
@@ -42,7 +46,7 @@
   {:else if !sessions}
     <p class="muted small">Loading…</p>
   {:else if !sessions.length}
-    <p class="muted small">No sessions yet. A session appears here when an open play you joined or hosted ends.</p>
+    <p class="muted small">No {sport} sessions yet. A session appears here when an open play you joined or hosted ends.</p>
   {:else}
     <ul class="session-list">
       {#each sessions.slice(0, shown) as s (s.id)}
@@ -50,7 +54,7 @@
         <li class="session-row">
           <div class="session-main">
             <strong>{s.name}</strong>
-            <span class="tag">{day(s.ended_at)} · {s.sport} · {plural(s.summary.games, 'game')}{s.manager_id === account.user.id ? ' · hosted' : ''}</span>
+            <span class="tag">{day(s.ended_at)} · {plural(s.summary.games, 'game')}{s.manager_id === account.user.id ? ' · hosted' : ''}</span>
             {#if me}
               <span class="session-me">
                 <span class="rank-badge place-{Math.min(me.rank, 4)}">{me.rank}</span>

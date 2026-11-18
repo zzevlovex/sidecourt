@@ -1,7 +1,8 @@
 // Open play session logic: courts, waiting queue, teammate options.
 // Pure functions: each one returns a NEW session object.
 //
-// A queue entry is { id, p: [names], addedBy }.
+// A queue entry is { id, p: [names], addedBy, away }.
+//   away = on a break: keeps its place in the line but is skipped when games are called
 //   p with 1 name  = wants a random teammate
 //   p with 2 names = picked partners who stay together
 
@@ -34,10 +35,11 @@ export function makeRng(seed) {
   return rng;
 }
 
-export function newSession({ name = 'Open play', sport = 'pickleball', courts = 2 } = {}) {
+export function newSession({ name = 'Open play', sport = 'pickleball', courts = 2, location = '' } = {}) {
   return {
     name,
     sport,
+    location: location.trim(), // where the courts are (optional); shown on the share cards
     allowPicks: true, // queue manager can switch to "random only"
     nextId: 1,
     courts: Array.from({ length: courts }, (_, i) => ({ id: i + 1, teams: [], game: 0 })),
@@ -50,7 +52,7 @@ export function newSession({ name = 'Open play', sport = 'pickleball', courts = 
 }
 
 export function waitingCount(session) {
-  return session.queue.reduce((sum, entry) => sum + entry.p.length, 0);
+  return session.queue.reduce((sum, entry) => sum + (entry.away ? 0 : entry.p.length), 0);
 }
 
 export function playingCount(session) {
@@ -83,6 +85,18 @@ export function moveUp(session, entryId) {
   return next;
 }
 
+// On a break: the entry stays where it is in the line, but games are called
+// without it. Coming back, it is still in its old place (now nearer the top).
+export function setAway(session, entryId, away) {
+  const next = clone(session);
+  const entry = next.queue.find((e) => e.id === entryId);
+  if (entry) {
+    if (away) entry.away = true;
+    else delete entry.away;
+  }
+  return next;
+}
+
 export function removeEntry(session, entryId) {
   const next = clone(session);
   next.queue = next.queue.filter((entry) => entry.id !== entryId);
@@ -97,6 +111,7 @@ export function pairUp(session, firstId, secondId) {
   const j = next.queue.findIndex((entry) => entry.id === secondId);
   if (!next.allowPicks || i < 0 || j < 0 || i === j) return next;
   if (next.queue[i].p.length !== 1 || next.queue[j].p.length !== 1) return next;
+  if (next.queue[i].away || next.queue[j].away) return next;
   const [early, late] = i < j ? [i, j] : [j, i];
   const first = next.queue[i];
   next.queue[early] = { id: next.nextId++, p: [first.p[0], next.queue[j].p[0]], addedBy: first.addedBy };
@@ -109,8 +124,8 @@ export function splitPair(session, entryId) {
   const next = clone(session);
   const i = next.queue.findIndex((entry) => entry.id === entryId);
   if (i < 0 || next.queue[i].p.length !== 2) return next;
-  const { p, addedBy } = next.queue[i];
-  next.queue.splice(i, 1, ...p.map((n) => ({ id: next.nextId++, p: [n], addedBy })));
+  const { p, addedBy, away } = next.queue[i];
+  next.queue.splice(i, 1, ...p.map((n) => ({ id: next.nextId++, p: [n], addedBy, ...(away && { away }) })));
   return next;
 }
 
@@ -120,10 +135,14 @@ export function setAllowPicks(session, allow) {
   next.allowPicks = allow;
   if (!allow) {
     const split = [];
-    next.queue.forEach((entry) => entry.p.forEach((n) => split.push({ id: next.nextId++, p: [n], addedBy: entry.addedBy })));
+    next.queue.forEach((entry) => entry.p.forEach((n) => split.push({ id: next.nextId++, p: [n], addedBy: entry.addedBy, ...(entry.away && { away: true }) })));
     next.queue = split;
   }
   return next;
+}
+
+export function setLocation(session, location) {
+  return { ...clone(session), location: location.trim() };
 }
 
 export function addCourt(session) {
@@ -141,7 +160,7 @@ export function pickNext(session) {
   const taken = [];
   const rest = [];
   session.queue.forEach((entry) => {
-    if (entry.p.length <= need) {
+    if (!entry.away && entry.p.length <= need) {
       taken.push(entry);
       need -= entry.p.length;
     } else {
@@ -150,7 +169,7 @@ export function pickNext(session) {
   });
   // Still short (e.g. solo + pair + pair): split the next pair to fill the last spot.
   for (let i = 0; i < rest.length && need > 0; i++) {
-    if (rest[i].p.length === 2) {
+    if (!rest[i].away && rest[i].p.length === 2) {
       taken.push({ id: nextId++, p: [rest[i].p[0]], addedBy: rest[i].addedBy });
       rest[i] = { ...rest[i], p: [rest[i].p[1]] };
       need -= 1;
@@ -388,6 +407,7 @@ export function finishSession(session, liveScores = {}, endedAt = new Date().toI
     name: session.name,
     sport: session.sport,
     endedAt,
+    ...(session.location?.trim() ? { location: session.location.trim() } : {}),
     games: results.length,
     results,
     standings: rankings(results, allPlayers(session)),

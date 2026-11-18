@@ -38,6 +38,8 @@ export const LAYOUTS = {
 // Names are typed by people: escape them so they cannot break the image.
 const esc = (t) => String(t).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[ch]);
 // SVG text does not wrap or shrink: cut long text and add "…".
+import { LOGO_SHAPES, LOGO_SIZE, logoPath } from './logo.js';
+
 const fit = (t, max) => (String(t).length > max ? `${String(t).slice(0, max - 1).trimEnd()}…` : String(t));
 const signed = (n) => (n > 0 ? `+${n}` : String(n));
 const pct = (p) => (p.wins + p.losses ? `${Math.round(p.winRate * 100)}%` : '–');
@@ -63,13 +65,11 @@ function titleLines(name, max) {
   return [first, fit(name.slice(first.length).trim(), max)];
 }
 
-// The logo: two orange halves with a real gap between them (the net), so it
-// works on any background. size is its height in pixels.
+// The logo: the orange S and C with a real gap between them, so it works on
+// any background. size is its height in pixels.
 function logo(x, y, size) {
-  const half = (d) => `<path d="${d}" fill="${C.orange}"/>`;
-  return `<g transform="translate(${x} ${y}) scale(${size / 32})">`
-    + half('M9 0H14V32H9A9 9 0 0 1 0 23V9A9 9 0 0 1 9 0Z')
-    + half('M18 0H23A9 9 0 0 1 32 9V23A9 9 0 0 1 23 32H18Z')
+  return `<g transform="translate(${x} ${y}) scale(${size / LOGO_SIZE})">`
+    + LOGO_SHAPES.map((shape) => `<path d="${logoPath(shape)}" fill="${C.orange}"/>`).join('')
     + '</g>';
 }
 
@@ -176,10 +176,14 @@ function overallCard(summary, L, opts) {
   const o = overallStats(summary);
   const ranked = summary.standings.filter((p) => p.played);
   const name = summary.name.trim() || 'Open play';
+  const where = (summary.location ?? '').trim();
   let body = header(L, {
     eyebrow: 'FINAL STANDINGS',
     lines: L.story ? titleLines(name, 20) : [fit(name, 36)],
-    subs: [`${cap(summary.sport)} · ${dateText(summary.endedAt)}`, `${plural(o.games, 'game')} · ${plural(o.players, 'player')} · ${plural(o.points, 'point')}`],
+    // With a location, the first line is where and when, and the sport moves to the second.
+    subs: where
+      ? [`${fit(where, L.story ? 36 : 50)} · ${dateText(summary.endedAt)}`, `${cap(summary.sport)} · ${plural(o.games, 'game')} · ${plural(o.players, 'player')} · ${plural(o.points, 'point')}`]
+      : [`${cap(summary.sport)} · ${dateText(summary.endedAt)}`, `${plural(o.games, 'game')} · ${plural(o.players, 'player')} · ${plural(o.points, 'point')}`],
   });
   if (!ranked.length) return frame(body + text(L.pad, L.bottom, 'No games were played.', { size: T.sub, fill: C.muted }), L, opts);
 
@@ -246,7 +250,7 @@ function playerCard(summary, p, L, opts) {
     eyebrowFill: MEDAL[place],
     badge: { fill: MEDAL[place], text: p.rank },
     lines: [fit(p.name, L.story ? 20 : 30)],
-    subs: [fit(`${summary.name.trim() || 'Open play'} · ${dateText(summary.endedAt)}`, L.story ? 52 : 70)],
+    subs: [fit(`${summary.name.trim() || 'Open play'} · ${dateText(summary.endedAt)}`, L.story ? 52 : 70), ...((summary.location ?? '').trim() ? [fit(summary.location.trim(), L.story ? 52 : 70)] : [])],
   });
 
   // Level 2: three headline numbers, each a small label over a very large value.

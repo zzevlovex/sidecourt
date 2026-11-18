@@ -48,7 +48,7 @@ a { color: var(--orange); }
 .site-header { position: sticky; top: 0; z-index: 20; padding-top: env(safe-area-inset-top); border-bottom: 1px solid var(--line); background: rgba(10, 13, 24, 0.78); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .top-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-top: 10px; padding-bottom: 10px; }
 .brand { font-family: var(--display); font-weight: 700; font-size: 1.2rem; color: var(--text); text-decoration: none; display: flex; align-items: center; gap: 10px; min-height: 44px; }
-.brand::before { content: ''; width: 28px; height: 28px; border-radius: var(--r-sm); background: linear-gradient(90deg, var(--orange) 46%, var(--bg) 46% 54%, var(--orange) 54%); transition: transform 0.25s ease; }
+.brand .logo { flex: none; transition: transform 0.25s ease; }
 .site-header nav { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .muted { color: var(--muted); } .small { font-size: 0.875rem; } .center { text-align: center; }
@@ -481,7 +481,7 @@ body {
   .btn-light:not(:disabled):hover { background: #fff; }
   .btn-dark:not(:disabled):hover { background: var(--surface); }
   .btn-danger:not(:disabled):hover { background: rgba(255, 90, 106, 0.12); border-color: var(--red); }
-  .brand:hover::before { transform: rotate(-10deg) scale(1.06); }
+  .brand:hover .logo { transform: rotate(-10deg) scale(1.06); }
 
   a.card:hover, .court.playing:hover { transform: translateY(-3px); border-color: var(--border); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 16px 40px rgba(0, 0, 0, 0.4); }
   .action-card:hover .arrow { translate: 4px -50%; color: var(--orange); }
@@ -780,7 +780,7 @@ body::before {
 }
 
 /* 13. Standings: a soft gold light behind the title */
-.final-head { padding: 22px 12px 6px; border-radius: var(--r-lg); background: radial-gradient(70% 110% at 50% 0%, rgba(242, 193, 78, 0.13), transparent 70%); }
+.final-head { padding: 22px 12px 6px; border-radius: var(--r-lg); background: radial-gradient(closest-side, rgba(242, 193, 78, 0.13), transparent); }
 
 /* 14. Account: the player-code panel reads as a card you can show */
 .player-code { border: 1px solid var(--line); background: linear-gradient(135deg, var(--raised), var(--surface)); }
@@ -790,3 +790,27 @@ body::before {
 .site-footer { max-width: calc(var(--page-max) + 2 * var(--gutter)); margin: 0 auto; padding: 20px var(--gutter) calc(26px + env(safe-area-inset-bottom)); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.8rem; }
 .site-footer strong { color: var(--soft, var(--text)); font-family: var(--display); }
 .site-footer .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--border); }
+
+/* ---------- Break and saved groups ---------- */
+.queue-item.away { background: none; border-style: dashed; border-color: var(--line); }
+.queue-item.away .grow strong, .queue-item.away .tag, .queue-item.away .pos { opacity: 0.55; }
+.queue-item .pair-btn.back { color: var(--green); }
+/* Phones: four buttons do not fit beside a name, so they sit on their own line. */
+@media (max-width: 480px) {
+  .queue-item { flex-wrap: wrap; }
+  .queue-item .grow { flex: 1 1 0; min-width: 0; }
+  .queue-item .item-actions:not(:empty) { flex: 1 0 100%; justify-content: flex-end; margin-top: -6px; }
+}
+.group-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.group-row .hint { flex-basis: 100%; }
+.group-chip { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--raised); color: var(--text); font: inherit; font-weight: 700; font-size: 0.9rem; cursor: pointer; transition: transform 0.12s ease, border-color 0.15s ease; }
+.group-chip:active { transform: scale(0.96); }
+.group-chip:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+@media (hover: hover) { .group-chip:hover { border-color: var(--orange); } }
+.group-save { display: flex; align-items: flex-end; gap: 8px; margin-top: 12px; }
+.group-save .grow { flex: 1; min-width: 0; }
+.group-line { min-height: 44px; }
+
+/* Scorer link on a court card: quiet, under the two main buttons */
+.scorer-link { align-self: center; color: var(--muted); font-size: 0.85rem; }
+@media (hover: hover) { .scorer-link:hover { color: var(--text); } }

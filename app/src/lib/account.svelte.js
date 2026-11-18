@@ -4,6 +4,7 @@
 import { supabase } from './supabase.js';
 import { newKey, newPlayerCode, parseKey, keyEmail } from './logic/keys.js';
 import { remove } from './storage.js';
+import { store } from './state.svelte.js';
 
 class Account {
   ready = $state(!supabase); // true once we know whether someone is signed in
@@ -82,6 +83,7 @@ class Account {
 
   async signOut() {
     await supabase.auth.signOut();
+    store.setSummary(null); // the last standings on Home belong to whoever was signed in; they stay in that account's history
   }
 
   // Supabase sends a confirmation link to the new address.
@@ -109,6 +111,7 @@ class Account {
     if (error) throw error;
     remove('sidecourt.outbox'); // games waiting to upload were recorded by this account
     await supabase.auth.signOut({ scope: 'local' }); // the account is gone; just forget it here
+    store.setSummary(null);
     this.user = null;
     this.profile = null;
   }

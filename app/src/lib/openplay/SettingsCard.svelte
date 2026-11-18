@@ -2,7 +2,7 @@
   import { store } from '$lib/state.svelte.js';
   import { plural } from '$lib/format.js';
   import { ui } from './ui.svelte.js';
-  import { allowPicks, addCourt } from './actions.js';
+  import { allowPicks, addCourt, saveLocation } from './actions.js';
 
   const session = $derived(store.session);
 </script>
@@ -25,6 +25,10 @@
           : 'Everyone gets a random teammate, including people who checked in as partners.'}
       </p>
     </div>
+    <label>Location (optional)
+      <input value={session.location ?? ''} placeholder="e.g. Riverside Sports Center" maxlength="40" autocomplete="off" onchange={(e) => saveLocation(e.currentTarget.value)} />
+      <span class="hint">Where the courts are. It is shown on the share photos.</span>
+    </label>
     <div class="row between">
       <span><span class="label">Courts</span> {session.courts.length}</span>
       <button class="btn btn-small btn-ghost" onclick={addCourt}>+ Add a court</button>

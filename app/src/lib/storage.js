@@ -5,6 +5,7 @@ export const KEYS = {
   session: 'sidecourt.session',
   summary: 'sidecourt.summary', // final standings of the last session
   help: 'sidecourt.help.hidden',
+  groups: 'sidecourt.groups', // saved player lists for one-tap check-in
 };
 
 export const matchKey = (courtId) => (courtId ? `sidecourt.match.court${courtId}` : 'sidecourt.match');

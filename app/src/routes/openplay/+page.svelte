@@ -11,6 +11,7 @@
   import { ui } from '$lib/openplay/ui.svelte.js';
   import { announce, setHelp, pullJoins, checkInByCode } from '$lib/openplay/actions.js';
   import LobbyDialog from '$lib/openplay/LobbyDialog.svelte';
+  import ScorerDialog from '$lib/openplay/ScorerDialog.svelte';
   import { account } from '$lib/account.svelte.js';
   import { POLL_MS } from '$lib/lobby.svelte.js';
   import { codeFrom } from '$lib/logic/lobby.js';
@@ -89,7 +90,7 @@
 {:else}
   <section class="session-head">
     <div class="head-title">
-      <p class="eyebrow">Open play · {session.sport}</p>
+      <p class="eyebrow">Open play · {session.sport}{session.location ? ` · ${session.location}` : ''}</p>
       <h1>{session.name}</h1>
     </div>
     <div class="head-actions">
@@ -171,4 +172,7 @@
   {#if ui.ending}<EndDialog />{/if}
   {#if lobbyOpen && session.lobby}<LobbyDialog code={session.lobby} onclose={() => (lobbyOpen = false)} />{/if}
   {#if ui.finishing !== null}<FinishDialog />{/if}
+  {#if ui.scoring !== null && session.lobby && session.scoreKeys?.[ui.scoring]}
+    <ScorerDialog code={session.lobby} court={ui.scoring} key={session.scoreKeys[ui.scoring]} onclose={() => (ui.scoring = null)} />
+  {/if}
 {/if}

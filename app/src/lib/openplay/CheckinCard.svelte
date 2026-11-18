@@ -2,7 +2,8 @@
   import Icon from '$lib/components/Icon.svelte';
   import { store } from '$lib/state.svelte.js';
   import { ui, drafts } from './ui.svelte.js';
-  import { checkIn, checkInByCode } from './actions.js';
+  import { checkIn, checkInByCode, checkInGroup, saveCurrentAsGroup } from './actions.js';
+  import { groups, removeGroup } from '$lib/groups.svelte.js';
   import { resolve } from '$app/paths';
   import { account } from '$lib/account.svelte.js';
   import Scanner from '$lib/components/Scanner.svelte';
@@ -25,6 +26,12 @@
     checking = true;
     if (await checkInByCode(code)) code = '';
     checking = false;
+  }
+
+  let groupName = $state('');
+  function submitGroup(event) {
+    event.preventDefault();
+    if (saveCurrentAsGroup(groupName)) groupName = '';
   }
 
   let input;
@@ -73,6 +80,16 @@
     <button class="btn btn-primary" type="submit">Add to line</button>
   </form>
 
+  <!-- Saved groups: one tap checks in all the regulars -->
+  {#if groups.list.length}
+    <div class="group-row">
+      <span class="hint">Saved groups</span>
+      {#each groups.list as g (g.name)}
+        <button class="group-chip" type="button" onclick={() => checkInGroup(g)}><Icon name="users" size={16} /> {g.name} <span class="muted">{g.names.length}</span></button>
+      {/each}
+    </div>
+  {/if}
+
   <!-- 2. By player code: for players with an account -->
   {#if account.enabled}
     <div class="or-line"><span>or with a player code</span></div>
@@ -104,5 +121,18 @@
   <details class="more">
     <summary>More options</summary>
     <label>Checked in by (optional)<input bind:value={drafts.addedBy} placeholder="e.g. a group leader" /></label>
+    <form class="group-save" onsubmit={submitGroup}>
+      <label class="grow">Save everyone here as a group
+        <input bind:value={groupName} placeholder="e.g. Friday regulars" maxlength="30" autocomplete="off" required />
+      </label>
+      <button class="btn btn-ghost">Save group</button>
+    </form>
+    <p class="hint">Kept on this device. Next time, one tap checks them all in. Saving the same name again updates it.</p>
+    {#each groups.list as g (g.name)}
+      <div class="row between group-line">
+        <span><strong>{g.name}</strong> <span class="muted small">{g.names.length} players</span></span>
+        <button class="link-btn" type="button" onclick={() => removeGroup(g.name)}>Delete</button>
+      </div>
+    {/each}
   </details>
 </section>

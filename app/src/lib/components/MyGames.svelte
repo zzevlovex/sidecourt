@@ -6,14 +6,18 @@
 
   const STEP = 5; // shown at first, and added by each "See more"
 
-  let games = $state(null);
+  let { sport } = $props(); // only this sport's games are shown
+
+  let all = $state(null);
+  const games = $derived(all ? all.filter((g) => g.sport === sport) : null);
+  $effect(() => { sport; shown = STEP; }); // a new tab starts short again
   let failed = $state(false);
   let shown = $state(STEP);
 
   $effect(() => {
     if (!account.user) return;
     failed = false;
-    myGames().then((rows) => (games = rows)).catch(() => (failed = true));
+    myGames().then((rows) => (all = rows)).catch(() => (failed = true));
   });
 
   const me = $derived(account.user?.id);
@@ -31,7 +35,7 @@
   {:else if !games}
     <p class="muted small">Loading…</p>
   {:else if !games.length}
-    <p class="muted small">No games yet. Ask the manager to check you in with your player code: your games show up here when the open play ends.</p>
+    <p class="muted small">No {sport} games yet. Ask the manager to check you in with your player code: your games show up here when the open play ends.</p>
   {:else}
     <div class="chips">
       <span class="stat-chip"><strong>{games.length}</strong> {games.length === 1 ? 'game' : 'games'}</span>
@@ -61,7 +65,7 @@
     </ul>
     {#if games.length > shown}
       <button class="btn btn-small btn-ghost see-more" onclick={() => (shown += STEP * 2)}>See more ({games.length - shown} left)</button>
-    {:else if games.length >= 200}
+    {:else if all.length >= 200}
       <p class="hint">Showing your latest 200 games.</p>
     {/if}
   {/if}

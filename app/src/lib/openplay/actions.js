@@ -8,7 +8,7 @@ import { save, KEYS } from '$lib/storage.js';
 import { plural, speak } from '$lib/format.js';
 import {
   newSession, addPlayers, hasPlayer, moveUp as moveUpRule, removeEntry, setAllowPicks, addCourt as addCourtRule,
-  fillCourt, endGame, reshuffle, finishSession, pairUp, splitPair, resultWinner,
+  fillCourt, endGame, reshuffle, finishSession, pairUp, splitPair, resultWinner, setAway, allPlayers, setLocation,
 } from '$lib/logic/queue.js';
 import { ui, drafts } from './ui.svelte.js';
 import { supabase } from '$lib/supabase.js';
@@ -16,6 +16,8 @@ import { account } from '$lib/account.svelte.js';
 import { queueSession, discardSession } from '$lib/history.svelte.js';
 import { closeLobby, pendingJoins, clearJoin } from '$lib/lobby.svelte.js';
 import { publicState } from '$lib/logic/lobby.js';
+import { groups, saveGroup } from '$lib/groups.svelte.js';
+import { newPlayerCode } from '$lib/logic/keys.js';
 
 const undoTo = (before) => () => store.setSession(before);
 
@@ -26,10 +28,10 @@ export function announce() {
 
 /* ---------- Setup and check-in ---------- */
 
-export function createSession({ name, sport, courts }) {
+export function createSession({ name, sport, courts, location = '' }) {
   store.setSummary(null);
   ui.focusCheckin = true;
-  store.setSession(newSession({ name: name.trim(), sport, courts: Number(courts) }));
+  store.setSession(newSession({ name: name.trim(), sport, courts: Number(courts), location }));
   toast('Session open. Start checking players in.', { type: 'success' });
 }
 
@@ -56,6 +58,31 @@ export function checkIn() {
     ? `${fresh[0]} & ${fresh[1]} added as partners.`
     : `${fresh.length === 1 ? fresh[0] : plural(fresh.length, 'player')} added to the line.`;
   toast(skipped ? `${who} ${plural(skipped, 'name')} skipped (already checked in).` : who, { type: skipped ? 'info' : 'success' });
+  return true;
+}
+
+// Check in everyone from a saved group who is not here yet, each with a random teammate.
+export function checkInGroup(group) {
+  const before = store.session;
+  const fresh = group.names.filter((n) => !hasPlayer(before, n));
+  if (!fresh.length) {
+    toast(`Everyone in ${group.name} is already checked in.`, { type: 'warn' });
+    return;
+  }
+  store.setSession(addPlayers(before, fresh, { addedBy: drafts.addedBy.trim() || null }));
+  toast(`${group.name}: ${plural(fresh.length, 'player')} added to the line.`, { type: 'success', onUndo: undoTo(before) });
+}
+
+// Save everyone checked in right now as a group. Returns true when saved.
+export function saveCurrentAsGroup(name) {
+  const names = allPlayers(store.session);
+  if (!names.length) {
+    toast('Check players in first, then save them as a group.', { type: 'warn' });
+    return false;
+  }
+  const replaced = groups.list.some((g) => g.name.toLowerCase() === name.trim().toLowerCase());
+  saveGroup(name, names);
+  toast(`${name.trim()} ${replaced ? 'updated' : 'saved'}: ${plural(names.length, 'player')}.`, { type: 'success' });
   return true;
 }
 
@@ -115,6 +142,20 @@ export function sendToCourt(courtId) {
     toast(`Court ${courtId}: ${store.session.lastCall.names.join(', ')}`, { type: 'success', onUndo: undoTo(before) });
     announce();
   }
+}
+
+// Show the link that lets another phone keep score for this court. The court's
+// secret is made once and reused, so the same link works all session.
+export function shareScoring(courtId) {
+  const session = store.session;
+  if (!supabase || !account.user) {
+    toast('Sign in on the Account page to let another phone keep score.', { type: 'warn' });
+    return;
+  }
+  if (!session.scoreKeys?.[courtId]) {
+    store.setSession({ ...session, scoreKeys: { ...session.scoreKeys, [courtId]: newPlayerCode() + newPlayerCode() } });
+  }
+  ui.scoring = courtId;
 }
 
 // Score to save for a game on court: what was typed on the card, else the scoreboard.
@@ -177,6 +218,15 @@ export function removePlayer(entry) {
   toast(`${entry.p.join(' & ')} left the line.`, { onUndo: undoTo(before) });
 }
 
+// Break: the players keep their place but are skipped until they are back.
+export function setBreak(entry, away) {
+  const before = store.session;
+  if (ui.pairing === entry.id) ui.pairing = null;
+  store.setSession(setAway(before, entry.id, away));
+  const who = entry.p.join(' & ');
+  toast(away ? `${who} on a break. Their place is kept.` : `${who} back in the line.`, { onUndo: undoTo(before) });
+}
+
 export function pairWith(entryId) {
   const before = store.session;
   const first = before.queue.find((e) => e.id === ui.pairing);
@@ -203,6 +253,12 @@ export function allowPicks(allow) {
   store.setSession(setAllowPicks(before, allow));
   if (allow) toast('Players can now check in as partners.', { type: 'success' });
   else toast('Random only: partners in the line were split up.', { onUndo: undoTo(before) });
+}
+
+export function saveLocation(location) {
+  if ((store.session.location ?? '') === location.trim()) return;
+  store.setSession(setLocation(store.session, location));
+  toast(location.trim() ? `Location set: ${location.trim()}.` : 'Location removed.', { type: 'success' });
 }
 
 export function addCourt() {
@@ -236,6 +292,7 @@ export function confirmEnd() {
   closeLobby(before.lobby, publicState({ ...before, results: summary.results })).catch(() => {});
   ui.ending = false;
   ui.pairing = null;
+  ui.scoring = null;
   drafts.scores = {};
   before.courts.forEach((court) => store.setMatch(court.id, null));
   store.setSession(null);

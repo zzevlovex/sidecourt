@@ -257,9 +257,9 @@
       <div class="row between"><h2 class="section-title"><span class="title-icon"><Icon name="list" size={18} /></span>Waiting line</h2><span class="count">{waitingCount(s)}</span></div>
       <ol class="queue">
         {#each s.queue as entry, i (entry.id)}
-          <li class={['queue-item', entry.p.some(isMe) && 'picking']}>
+          <li class={['queue-item', entry.p.some(isMe) && 'picking', entry.away && 'away']}>
             <span class="pos">{i + 1}</span>
-            <span class="grow"><strong>{entry.p.join(' & ')}</strong>{#if entry.p.some(isMe)}<span class="badge badge-next">You</span>{/if}</span>
+            <span class="grow"><strong>{entry.p.join(' & ')}</strong>{#if entry.p.some(isMe)}<span class="badge badge-next">You</span>{/if}{#if entry.away}<span class="badge badge-deck">On break</span>{/if}</span>
           </li>
         {:else}
           <li class="empty-line muted">Nobody is waiting.</li>

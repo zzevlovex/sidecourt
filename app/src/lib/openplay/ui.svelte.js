@@ -11,6 +11,7 @@ export const ui = $state({
   finishing: null, // court id in the "Who won?" dialog
   finishScore: null,
   focusCheckin: false,
+  scoring: null, // court id whose scorer link is shown
 });
 
 // Typed but not yet saved.

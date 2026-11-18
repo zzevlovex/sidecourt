@@ -7,6 +7,7 @@
   import MySessions from '$lib/components/MySessions.svelte';
   import QrCode from '$lib/components/QrCode.svelte';
 
+  let sport = $state('pickleball'); // history tab
   let name = $state('');
   let keyInput = $state('');
   let emailInput = $state('');
@@ -99,9 +100,16 @@
       </div>
     </section>
 
-    <MySessions />
+    <!-- One sport at a time: the tab filters both lists below -->
+    <div class="segmented" role="group" aria-label="Sport shown in your history">
+      {#each ['pickleball', 'badminton'] as s (s)}
+        <button type="button" class={[sport === s && 'on']} aria-pressed={sport === s} onclick={() => (sport = s)}>{s[0].toUpperCase() + s.slice(1)}</button>
+      {/each}
+    </div>
 
-    <MyGames />
+    <MySessions {sport} />
+
+    <MyGames {sport} />
 
     <section class="card stack quiet">
       <h2 class="section-title"><span class="title-icon"><Icon name="mail" size={18} /></span>Recovery email</h2>

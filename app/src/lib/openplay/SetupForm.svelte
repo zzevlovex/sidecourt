@@ -6,10 +6,11 @@
   let name = $state('');
   let sport = $state('pickleball');
   let courts = $state(2);
+  let location = $state('');
 
   function submit(event) {
     event.preventDefault();
-    createSession({ name, sport, courts });
+    createSession({ name, sport, courts, location });
   }
 </script>
 
@@ -24,6 +25,9 @@
         <option value="pickleball">Pickleball</option>
         <option value="badminton">Badminton</option>
       </select>
+    </label>
+    <label>Location (optional) <input bind:value={location} placeholder="e.g. Riverside Sports Center" maxlength="40" autocomplete="off" />
+      <span class="hint">Where the courts are. It is shown on the share photos.</span>
     </label>
     <label>Number of courts <input type="number" min="1" max="12" bind:value={courts} required />
       <span class="hint">You can add more courts later.</span>

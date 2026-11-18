@@ -1,12 +1,12 @@
 // Quick checks for the rules. Run with:  node tests/run.mjs
 import assert from 'node:assert/strict';
 import { newMatch, rally, undo, winner, callText, serviceCourt, isGamePoint } from '../src/lib/logic/scoring.js';
-import { newSession, addPlayers, fillCourt, endGame, pickNext, setAllowPicks, waitingCount, playingCount, moveUp, removeEntry, upcoming, reshuffle, rankings, finishSession, pairUp, splitPair, playHistory, splitCost } from '../src/lib/logic/queue.js';
+import { newSession, addPlayers, fillCourt, endGame, pickNext, setAllowPicks, waitingCount, playingCount, moveUp, removeEntry, upcoming, reshuffle, rankings, finishSession, pairUp, splitPair, playHistory, splitCost, setAway } from '../src/lib/logic/queue.js';
 
 import { shareCards, overallStats, playerMatches, closestGames, STORY_SAFE } from '../src/lib/logic/shareCard.js';
 import qrcode from 'qrcode-generator';
 import jsQR from 'jsqr';
-import { publicState, codeFrom } from '../src/lib/logic/lobby.js';
+import { publicState, codeFrom, fitsCourt } from '../src/lib/logic/lobby.js';
 import { gameRows, sessionRow } from '../src/lib/logic/history.js';
 import { newKey, newPlayerCode, parseKey, keyEmail, ALPHABET } from '../src/lib/logic/keys.js';
 
@@ -240,6 +240,38 @@ assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
   assert.equal(seen.size, 3);
 }
 
+// Scorer links: secrets never reach players; a remote score only counts for the game now on court.
+{
+  assert.ok(!('scoreKeys' in publicState({ name: 'X', scoreKeys: { 1: 'SECRETSECRET' }, queue: [] })));
+  const court = { id: 1, game: 2, teams: [{ p: ['Ana', 'Ben'] }, { p: ['Cy', 'Dee'] }] };
+  const m = { game: 2, names: { a: 'Ana / Ben', b: 'Cy / Dee' } };
+  assert.ok(fitsCourt(m, court));
+  assert.ok(!fitsCourt({ ...m, game: 1 }, court)); // earlier game on the same court
+  assert.ok(!fitsCourt({ ...m, names: { a: 'Ana / Cy', b: 'Ben / Dee' } }, court)); // other players
+  assert.ok(!fitsCourt(m, { ...court, teams: [] }) && !fitsCourt(null, court) && !fitsCourt({ game: 2 }, court));
+}
+
+// Break: an entry on a break keeps its place but is skipped; back, it plays from its old place.
+{
+  let s = addPlayers(newSession({ courts: 1 }), ['A', 'B', 'C', 'D', 'E']);
+  s = setAway(s, s.queue[0].id, true);
+  assert.equal(waitingCount(s), 4);
+  assert.deepEqual(pickNext(s).taken.map((e) => e.p[0]), ['B', 'C', 'D', 'E']);
+  assert.equal(pickNext(setAway(s, s.queue[1].id, true)), null); // only 3 left: no game
+  const on = fillCourt(s, 1);
+  assert.deepEqual(on.queue.map((e) => e.p[0]), ['A']); // still first in line
+  assert.ok(!on.courts[0].teams.flatMap((t) => t.p).includes('A'));
+  const back = setAway(s, s.queue[0].id, false);
+  assert.deepEqual(pickNext(back).taken.map((e) => e.p[0]), ['A', 'B', 'C', 'D']);
+  assert.equal(pairUp(s, s.queue[0].id, s.queue[1].id).queue.length, 5); // no pairing with someone on a break
+  // A pair on a break is not split to fill a last spot, and stays on a break when split by hand.
+  let p = addPlayers(addPlayers(newSession({ courts: 1 }), ['A', 'B', 'C']), ['X', 'Y'], { asPair: true });
+  p = setAway(p, p.queue[3].id, true);
+  assert.equal(pickNext(p), null);
+  assert.ok(splitPair(p, p.queue[3].id).queue.slice(3).every((e) => e.away));
+  assert.ok(setAllowPicks(p, false).queue.slice(3).every((e) => e.away));
+}
+
 // Share cards: 1 overall + 1 per top-3 player; names cut and made safe; matches from the player's side.
 {
   const res = [ // stored newest first, like a real session
@@ -308,6 +340,22 @@ assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
   assert.equal((storyTop1.svg.match(/>W<\/text>/g) || []).length, 5); // P1 won all 5: five W letters
   assert.ok(storyTop1.svg.includes('WIN RATE') && storyTop1.svg.includes('100%'));
   assert.ok(wideTop1.svg.includes('LAST 3 OF 5 GAMES'));
+
+  // Location: on every card when set, made safe, and nowhere when not set.
+  const placed = { ...big, location: 'Riverside <Courts> & Gym' };
+  for (const o of ['portrait', 'landscape']) {
+    const withPlace = shareCards(placed, { orientation: o });
+    assert.ok(withPlace.every((c) => c.svg.includes('Riverside &lt;Courts&gt; &amp; Gym')), o);
+    assert.ok(withPlace[0].svg.includes('Pickleball · 6 games'));
+    const [from, to] = o === 'portrait' ? [520, 1440] : [370, 1060];
+    for (const c of withPlace) assert.ok(lines(c.svg).every(([y]) => y < from || y > to), `${c.id}: location pushed text into the photo area`);
+  }
+  assert.ok(shareCards({ ...placed, name: 'A much longer session name here' }).every((c) => lines(c.svg).every(([y]) => y < 520 || y > 1440)));
+  assert.ok(!shareCards(big)[0].svg.includes('Riverside'));
+  assert.equal(finishSession({ ...newSession({ location: '  Riverside  ' }) }).location, 'Riverside');
+  assert.ok(!('location' in finishSession(newSession())));
+  // The logo is drawn as two letters, each one closed path.
+  assert.equal((storyOverall.svg.match(/<path d="M[^"]+Z" fill="#ff8a4c"\/>/g) || []).length, 2);
 
   // Empty session: only the overall card, saying so.
   const empty = shareCards({ ...sum, games: 0, results: [], standings: [] });
