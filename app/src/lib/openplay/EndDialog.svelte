@@ -46,7 +46,7 @@
 
     <div class="end-preview">
       <div class="chips">
-        <span class="stat-chip"><strong>{preview.games}</strong> games</span>
+        <span class="stat-chip"><strong>{preview.games}</strong> {preview.games === 1 ? 'game' : 'games'}</span>
         <span class="stat-chip"><strong>{preview.standings.filter((p) => p.played).length}</strong> players ranked</span>
       </div>
       <span class="label">Top of the rankings</span>

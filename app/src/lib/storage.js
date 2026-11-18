@@ -5,6 +5,7 @@ export const KEYS = {
   session: 'sidecourt.session',
   summary: 'sidecourt.summary', // final standings of the last session
   help: 'sidecourt.help.hidden',
+  theme: 'sidecourt.theme', // 'light' or 'dark'
   roster: 'sidecourt.roster', // everyone who has played on this device
   uploadFailed: 'sidecourt.outbox.failed', // results the database refused
   groups: 'sidecourt.groups', // saved player lists for one-tap check-in

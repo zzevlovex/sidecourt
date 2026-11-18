@@ -38,6 +38,18 @@ test('home page opens', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Terms and privacy' })).toBeVisible();
 });
 
+test('light mode is remembered', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'light'); // dark by default
+  await page.getByRole('button', { name: 'Light', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.getByRole('button', { name: 'Light', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Dark', exact: true }).click();
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'light');
+});
+
 test('unknown address shows the not found page', async ({ page }) => {
   await page.goto('/no-such-page');
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();

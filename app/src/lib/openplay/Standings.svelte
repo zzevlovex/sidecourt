@@ -34,7 +34,7 @@
     <p class="eyebrow">Final standings · {s.sport} · {date}</p>
     <h1>{s.name}</h1>
     <div class="chips">
-      <span class="stat-chip"><strong>{s.games}</strong> games</span>
+      <span class="stat-chip"><strong>{s.games}</strong> {s.games === 1 ? 'game' : 'games'}</span>
       <span class="stat-chip"><strong>{ranked.length}</strong> players</span>
     </div>
   </header>

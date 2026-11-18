@@ -7,6 +7,7 @@
   import { resolve } from '$app/paths';
   import Toasts from '#lib/components/Toasts.svelte';
   import Logo from '#lib/components/Logo.svelte';
+  import ThemeSwitch from '#lib/components/ThemeSwitch.svelte';
   import { onMount } from 'svelte';
   import { startLobbySync } from '#lib/lobby.svelte.js';
   import { account } from '#lib/account.svelte.js';
@@ -51,6 +52,7 @@
 </main>
 <footer class="site-footer">
   <strong>Sidecourt</strong><span class="dot" aria-hidden="true"></span><span>Scoring and open play for pickleball and badminton</span><span class="dot" aria-hidden="true"></span><a href={resolve('/terms')}>Terms and privacy</a>
+  <ThemeSwitch />
 </footer>
 
 <Toasts />

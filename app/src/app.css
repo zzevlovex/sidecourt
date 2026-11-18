@@ -862,3 +862,51 @@ body::before {
 .upload-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
 .upload-status .link-btn { min-height: 32px; }
 .resume-card { margin-bottom: 16px; border-color: var(--orange); }
+
+/* ---------- Theme switch ---------- */
+.theme-switch { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: var(--r-pill); }
+.theme-switch button { min-height: 36px; padding: 0 14px; border: none; border-radius: var(--r-pill); background: none; color: var(--muted); font: inherit; font-weight: 700; cursor: pointer; }
+.theme-switch button.on { background: var(--raised); color: var(--text); }
+.theme-switch button:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+/* ---------- Light theme, for reading outdoors ---------- */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f3f5fa; --surface: #ffffff; --raised: #e9edf6; --line: #d9dfec; --border: #b7c0d6;
+  --text: #10152a; --muted: #4c5573; --soft: #2a3150;
+  --orange: #c2410c; --orange-soft: #9a3412; --orange-tint: #fde8da;
+  --blue: #1d4ed8; --blue-tint: #dfe8ff;
+  --green: #0a7344; --green-tint: #d9f4e6; --green-line: #74c49c;
+  --red: #bb1c37; --red-line: #e8acb7; --live: #d11f3d;
+  --violet: #6636cc; --ball: #a3b300; --gold: #8a5f03; --silver: #5f6880; --bronze: #96500f;
+}
+[data-theme='light'] body { background: var(--bg); }
+[data-theme='light'] .site-header { background: rgba(243, 245, 250, 0.9); }
+[data-theme='light'] .card { box-shadow: 0 1px 3px rgba(20, 30, 60, 0.1); }
+[data-theme='light'] .card:not(.quiet):not(.court.free):not(.next-card):not(.join-card):not(.me-card):not(.key-card):not(.action-card) { background: var(--surface); border: 1px solid var(--line); }
+[data-theme='light'] .card:not(.court.free):not(.next-card):not(.fold) { background-image: none; }
+[data-theme='light'] .action-card, [data-theme='light'] .card.quiet, [data-theme='light'] .card.fold { background: var(--surface); }
+[data-theme='light'] .btn-primary, [data-theme='light'] .segmented button.on, [data-theme='light'] .seg input:checked + span, [data-theme='light'] .avatar { background: var(--orange); color: #fff; }
+[data-theme='light'] .btn-primary { box-shadow: 0 1px 2px rgba(20, 30, 60, 0.25); }
+[data-theme='light'] .btn-light, [data-theme='light'] .btn-dark { background: #10152a; color: #fff; box-shadow: 0 1px 2px rgba(20, 30, 60, 0.25); }
+[data-theme='light'] .btn-light:not(:disabled):hover { background: #262d45; }
+[data-theme='light'] .pill-pair { background: rgba(16, 21, 42, 0.08); }
+[data-theme='light'] .pill-random { border-color: rgba(16, 21, 42, 0.35); }
+[data-theme='light'] .badge-next, [data-theme='light'] .count, [data-theme='light'] .queue .queue-item.next .pos, [data-theme='light'] .pair-btn.pick { color: #fff; }
+[data-theme='light'] .banner { background: var(--orange); }
+[data-theme='light'] .banner, [data-theme='light'] .banner * { color: #fff; }
+[data-theme='light'] .toast { box-shadow: 0 6px 18px rgba(20, 30, 60, 0.2); }
+[data-theme='light'] .hero::after { opacity: 1; }
+[data-theme='light'] body::before { opacity: 0.8; }
+/* Small text keeps full strength in daylight. */
+[data-theme='light'] .banner .label, [data-theme='light'] .win-card .label, [data-theme='light'] .call-label, [data-theme='light'] .tap-hint { opacity: 1; }
+[data-theme='light'] .win-card, [data-theme='light'] .win-card .label, [data-theme='light'] .rank-badge, [data-theme='light'] .podium-block { color: #fff; }
+[data-theme='light'] .vs, [data-theme='light'] .matchup.ghost .vs, [data-theme='light'] .call-dash { color: var(--muted); opacity: 1; }
+[data-theme='light'] .toast-undo, [data-theme='light'] .point-pill { color: var(--orange-soft); }
+[data-theme='light'] .toast-undo { border-color: var(--orange-soft); }
+[data-theme='light'] .point-pill { animation: none; }
+[data-theme='light'] .queue-item.away .grow strong { opacity: 0.8; }
+[data-theme='light'] .queue-item.away .tag, [data-theme='light'] .queue-item.away .pos { opacity: 1; }
+
+/* The winner's name keeps a readable width: the button moves below it on phones. */
+.win-card .grow { flex: 1 1 180px; }
