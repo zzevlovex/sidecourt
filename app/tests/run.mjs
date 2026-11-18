@@ -7,6 +7,7 @@ import { shareCards, overallStats, playerMatches, closestGames, STORY_SAFE } fro
 import qrcode from 'qrcode-generator';
 import jsQR from 'jsqr';
 import { publicState, codeFrom, fitsCourt } from '../src/lib/logic/lobby.js';
+import { recordPlayers, rankRoster, forgetPlayer, dropLinks, linkFor, lastTyped, withoutLastTyped, suggestPlayers } from '../src/lib/logic/roster.js';
 import { gameRows, sessionRow } from '../src/lib/logic/history.js';
 import { newKey, newPlayerCode, parseKey, keyEmail, ALPHABET } from '../src/lib/logic/keys.js';
 
@@ -249,6 +250,34 @@ assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
   assert.ok(!fitsCourt({ ...m, game: 1 }, court)); // earlier game on the same court
   assert.ok(!fitsCourt({ ...m, names: { a: 'Ana / Cy', b: 'Ben / Dee' } }, court)); // other players
   assert.ok(!fitsCourt(m, { ...court, teams: [] }) && !fitsCourt(null, court) && !fitsCourt({ game: 2 }, court));
+}
+
+// Past players: most regular first; suggestions; account links stay with the manager who made them.
+{
+  let r = recordPlayers([], ['Ana Reyes', 'Ben'], { at: '2026-01-01', accounts: { Ben: 'id-ben' }, userId: 'm1' });
+  r = recordPlayers(r, ['ana reyes', 'Cy'], { at: '2026-01-02' });
+  assert.deepEqual(r.map((p) => [p.name, p.sessions]), [['ana reyes', 2], ['Cy', 1], ['Ben', 1]]);
+  assert.equal(r.find((p) => p.name === 'Ben').accountId, 'id-ben'); // kept when not re-recorded
+  assert.deepEqual(rankRoster(forgetPlayer(r, 'CY')).map((p) => p.name), ['ana reyes', 'Ben']);
+
+  assert.equal(lastTyped('Ana, Be '), 'Be');
+  assert.equal(withoutLastTyped('Ana, Be'), 'Ana, ');
+  assert.equal(withoutLastTyped('Be'), '');
+  assert.deepEqual(suggestPlayers(r, 'Ana, b'), ['Ben']);
+  assert.deepEqual(suggestPlayers(r, 're'), ['ana reyes']); // any word of the name
+  assert.deepEqual(suggestPlayers(r, 'b', (n) => n === 'Ben'), []); // already here
+  assert.deepEqual(suggestPlayers(r, 'Ben, '), []); // nothing typed yet
+  assert.deepEqual(suggestPlayers(r, 'Ben, b'), []); // already in the box
+
+  const valid = new Set(['id-ben']);
+  assert.equal(linkFor(r, 'BEN', 'm1', valid), 'id-ben');
+  assert.equal(linkFor(r, 'Ben', 'm2', valid), null); // another manager on this device
+  assert.equal(linkFor(r, 'Ben', null, valid), null); // signed out
+  assert.equal(linkFor(r, 'Ben', 'm1', null), null); // not confirmed by the server
+  assert.equal(linkFor(r, 'Ben', 'm1', new Set()), null); // account closed
+  assert.equal(linkFor(dropLinks(r, 'm1', (id) => valid.has(id)), 'Ben', 'm1', valid), 'id-ben');
+  assert.ok(!('accountId' in dropLinks(r, 'm1').find((p) => p.name === 'Ben')));
+  assert.equal(dropLinks(r, 'm2').find((p) => p.name === 'Ben').accountId, 'id-ben');
 }
 
 // Break: an entry on a break keeps its place but is skipped; back, it plays from its old place.

@@ -18,6 +18,8 @@ import { closeLobby, pendingJoins, clearJoin } from '$lib/lobby.svelte.js';
 import { publicState } from '$lib/logic/lobby.js';
 import { groups, saveGroup } from '$lib/groups.svelte.js';
 import { newPlayerCode } from '$lib/logic/keys.js';
+import { roster, rememberSession, restoreRoster } from '$lib/roster.svelte.js';
+import { linkFor } from '$lib/logic/roster.js';
 
 const undoTo = (before) => () => store.setSession(before);
 
@@ -33,6 +35,31 @@ export function createSession({ name, sport, courts, location = '' }) {
   ui.focusCheckin = true;
   store.setSession(newSession({ name: name.trim(), sport, courts: Number(courts), location }));
   toast('Session open. Start checking players in.', { type: 'success' });
+}
+
+// Add players by name. Anyone this manager has checked in by code before is
+// linked to their account again, so their games still reach their history.
+function addKnown(session, names, options) {
+  const next = addPlayers(session, names, options);
+  const accounts = { ...session.accounts };
+  const used = new Set(Object.values(accounts));
+  names.forEach((name) => {
+    const id = linkFor(roster.list, name, account.user?.id, roster.valid);
+    if (id && !used.has(id)) {
+      accounts[name] = id;
+      used.add(id);
+    }
+  });
+  return Object.keys(accounts).length ? { ...next, accounts } : next;
+}
+
+// Add past players from a suggestion or the Regulars list.
+export function addRegulars(names) {
+  const before = store.session;
+  const fresh = names.filter((n) => !hasPlayer(before, n));
+  if (!fresh.length) return;
+  store.setSession(addKnown(before, fresh, { addedBy: drafts.addedBy.trim() || null }));
+  toast(`${fresh.length === 1 ? fresh[0] : plural(fresh.length, 'player')} added to the line.`, { type: 'success', onUndo: undoTo(before) });
 }
 
 // Returns true when players were added (so the form can clear).
@@ -52,7 +79,7 @@ export function checkIn() {
     return false;
   }
 
-  store.setSession(addPlayers(session, fresh, { asPair: wantsPair, addedBy: drafts.addedBy.trim() || null }));
+  store.setSession(addKnown(session, fresh, { asPair: wantsPair, addedBy: drafts.addedBy.trim() || null }));
   drafts.names = '';
   const who = wantsPair
     ? `${fresh[0]} & ${fresh[1]} added as partners.`
@@ -69,7 +96,7 @@ export function checkInGroup(group) {
     toast(`Everyone in ${group.name} is already checked in.`, { type: 'warn' });
     return;
   }
-  store.setSession(addPlayers(before, fresh, { addedBy: drafts.addedBy.trim() || null }));
+  store.setSession(addKnown(before, fresh, { addedBy: drafts.addedBy.trim() || null }));
   toast(`${group.name}: ${plural(fresh.length, 'player')} added to the line.`, { type: 'success', onUndo: undoTo(before) });
 }
 
@@ -288,6 +315,7 @@ export function confirmEnd() {
   const before = store.session;
   const summary = finishSession(before, liveScoresToCount());
   store.setSummary(summary);
+  const rosterBefore = rememberSession(summary, before.accounts, account.user?.id);
   const savedId = queueSession(summary, before.accounts); // saved to the host's and the checked-in players' history
   closeLobby(before.lobby, publicState({ ...before, results: summary.results })).catch(() => {});
   ui.ending = false;
@@ -302,6 +330,7 @@ export function confirmEnd() {
     type: 'success',
     onUndo: () => {
       discardSession(savedId).catch(() => {});
+      restoreRoster(rosterBefore);
       store.setSummary(null);
       showStandings(false);
       store.setSession(before);

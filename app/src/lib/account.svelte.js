@@ -5,6 +5,7 @@ import { supabase } from './supabase.js';
 import { newKey, newPlayerCode, parseKey, keyEmail } from './logic/keys.js';
 import { remove } from './storage.js';
 import { store } from './state.svelte.js';
+import { forgetLinks } from './roster.svelte.js';
 
 class Account {
   ready = $state(!supabase); // true once we know whether someone is signed in
@@ -110,6 +111,7 @@ class Account {
     const { error } = await supabase.rpc('delete_my_account');
     if (error) throw error;
     remove('sidecourt.outbox'); // games waiting to upload were recorded by this account
+    forgetLinks(this.user.id); // players' account ids this manager had saved here
     await supabase.auth.signOut({ scope: 'local' }); // the account is gone; just forget it here
     store.setSummary(null);
     this.user = null;

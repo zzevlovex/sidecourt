@@ -2,7 +2,11 @@
   import Icon from '$lib/components/Icon.svelte';
   import { store } from '$lib/state.svelte.js';
   import { ui, drafts } from './ui.svelte.js';
-  import { checkIn, checkInByCode, checkInGroup, saveCurrentAsGroup } from './actions.js';
+  import { checkIn, checkInByCode, checkInGroup, saveCurrentAsGroup, addRegulars } from './actions.js';
+  import { hasPlayer } from '$lib/logic/queue.js';
+  import { suggestPlayers, withoutLastTyped } from '$lib/logic/roster.js';
+  import { roster, refreshLinks } from '$lib/roster.svelte.js';
+  import RegularsDialog from './RegularsDialog.svelte';
   import { groups, removeGroup } from '$lib/groups.svelte.js';
   import { resolve } from '$app/paths';
   import { account } from '$lib/account.svelte.js';
@@ -35,6 +39,28 @@
   }
 
   let input;
+  let picking = $state(false);
+
+  // Which past players this manager can link to their accounts again.
+  $effect(() => {
+    refreshLinks(account.user?.id);
+  });
+
+  const suggestions = $derived(suggestPlayers(roster.list, drafts.names, (n) => hasPlayer(store.session, n)));
+  const hasRegulars = $derived(roster.list.some((p) => !hasPlayer(store.session, p.name)));
+
+  // A suggestion adds the player at once. Partners go in as a pair, so there it
+  // only completes the name.
+  function choose(name) {
+    const rest = withoutLastTyped(drafts.names);
+    if (mode === 'pair') {
+      drafts.names = `${rest}${name}, `;
+    } else {
+      addRegulars([name]);
+      drafts.names = rest;
+    }
+    input.focus();
+  }
   const pairOk = $derived(store.session.allowPicks);
   const mode = $derived(pairOk ? drafts.mode : 'solo');
 
@@ -48,7 +74,8 @@
 
   function submit(event) {
     event.preventDefault();
-    if (checkIn()) input.focus();
+    checkIn();
+    input.focus(); // keep typing the next name
   }
 </script>
 
@@ -63,9 +90,19 @@
         bind:value={drafts.names}
         placeholder={mode === 'pair' ? 'Two names, e.g. Ana, Ben' : 'One name, or several: Ana, Ben, Cy'}
         autocomplete="off"
+        autocapitalize="words"
+        enterkeyhint="go"
         required
       />
     </label>
+    {#if suggestions.length}
+      <div class="suggestions" role="group" aria-label="Past players">
+        {#each suggestions as name (name)}
+          <!-- Keeps the keyboard open while tapping -->
+          <button class="group-chip" type="button" onpointerdown={(e) => e.preventDefault()} onclick={() => choose(name)}><Icon name="plus" size={16} /> {name}</button>
+        {/each}
+      </div>
+    {/if}
     {#if pairOk}
       <div class="segmented" role="radiogroup" aria-label="How do they want to play?">
         <label class="seg"><input type="radio" name="mode" value="solo" bind:group={drafts.mode} /><span>Random teammate</span></label>
@@ -77,7 +114,12 @@
       {:else if pairOk}Each person is paired with someone when their game is called.
       {:else}This session is set to random teammates only.{/if}
     </p>
-    <button class="btn btn-primary" type="submit">Add to line</button>
+    <div class="row">
+      <button class="btn btn-primary grow" type="submit">Add to line</button>
+      {#if hasRegulars}
+        <button class="btn btn-ghost" type="button" onclick={() => (picking = true)}><Icon name="users" size={18} /> Regulars</button>
+      {/if}
+    </div>
   </form>
 
   <!-- Saved groups: one tap checks in all the regulars -->
@@ -136,3 +178,5 @@
     {/each}
   </details>
 </section>
+
+{#if picking}<RegularsDialog onclose={() => (picking = false)} />{/if}

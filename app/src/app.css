@@ -814,3 +814,32 @@ body::before {
 /* Scorer link on a court card: quiet, under the two main buttons */
 .scorer-link { align-self: center; color: var(--muted); font-size: 0.85rem; }
 @media (hover: hover) { .scorer-link:hover { color: var(--text); } }
+
+/* ---------- Adding past players ---------- */
+.suggestions { display: flex; flex-wrap: wrap; gap: 8px; }
+.regular-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: min(46dvh, 420px); overflow-y: auto; }
+.regular { display: flex; align-items: center; gap: 4px; }
+.regular .option { flex: 1; min-width: 0; align-items: center; }
+.regular .option strong { display: block; overflow-wrap: anywhere; }
+.regular .icon-btn { border-color: transparent; color: var(--muted); }
+
+/* Header stays on one line at every width: first the Back label goes, then the name beside it. */
+.top-inner { flex-wrap: nowrap; }
+.top-inner > .row { flex: none; }
+.account-chip { flex: 0 1 auto; min-width: 0; }
+@media (max-width: 430px) {
+  .back-label { display: none; }
+  .site-header .back-btn { width: 44px; padding: 0; justify-content: center; }
+}
+@media (max-width: 350px) {
+  .back-btn + .brand .brand-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+
+/* A growing button in a wrapping row keeps its text on one line and moves to its own row when short of space. */
+.row.wrap > .btn.grow { flex: 1 1 auto; }
+.fold summary .section-label, .fold summary .small { white-space: nowrap; }
+/* Narrow screens: the footer's two parts stack, so the dot between them goes. */
+@media (max-width: 520px) {
+  .site-footer { flex-direction: column; text-align: center; }
+  .site-footer .dot { display: none; }
+}
