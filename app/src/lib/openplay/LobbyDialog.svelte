@@ -1,10 +1,10 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   // The lobby code and QR players scan to follow open play and join the line.
   import { resolve } from '$app/paths';
-  import Modal from '$lib/components/Modal.svelte';
-  import QrCode from '$lib/components/QrCode.svelte';
-  import { toast } from '$lib/toasts.svelte.js';
+  import Modal from '#lib/components/Modal.svelte';
+  import QrCode from '#lib/components/QrCode.svelte';
+  import { toast } from '#lib/toasts.svelte.js';
 
   let { code, onclose } = $props();
 

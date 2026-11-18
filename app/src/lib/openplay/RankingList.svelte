@@ -1,6 +1,6 @@
 <script>
   // The ranking table: used on the final standings page and in the account's open play history.
-  import { plural, pct, signed } from '$lib/format.js';
+  import { plural, pct, signed } from '#lib/format.js';
 
   // ranked: standings rows for players who played. highlight: (name) => true for the row to mark as "You".
   let { ranked, highlight = null } = $props();

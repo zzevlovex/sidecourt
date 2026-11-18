@@ -35,10 +35,13 @@ export function makeRng(seed) {
   return rng;
 }
 
-export function newSession({ name = 'Open play', sport = 'pickleball', courts = 2, location = '' } = {}) {
+// format: how games are played, passed to the scoreboard.
+//   { target, scoring: 'sideout' | 'rally' } for pickleball, { target, bestOf } for badminton
+export function newSession({ name = 'Open play', sport = 'pickleball', courts = 2, location = '', format = {} } = {}) {
   return {
     name,
     sport,
+    format,
     location: location.trim(), // where the courts are (optional); shown on the share cards
     allowPicks: true, // queue manager can switch to "random only"
     nextId: 1,
@@ -147,7 +150,18 @@ export function setLocation(session, location) {
 
 export function addCourt(session) {
   const next = clone(session);
-  next.courts.push({ id: next.courts.length + 1, teams: [], game: 0 });
+  // Courts can be removed, so the next number follows the highest one in use.
+  next.courts.push({ id: Math.max(0, ...next.courts.map((c) => c.id)) + 1, teams: [], game: 0 });
+  return next;
+}
+
+// Only an empty court can go, and at least one court always stays.
+export function removeCourt(session, courtId) {
+  const next = clone(session);
+  const court = next.courts.find((c) => c.id === courtId);
+  if (!court || court.teams.length || next.courts.length < 2) return next;
+  next.courts = next.courts.filter((c) => c.id !== courtId);
+  if (next.scoreKeys) delete next.scoreKeys[courtId];
   return next;
 }
 
@@ -330,6 +344,54 @@ export function endGame(session, courtId, score = null, random, winner = null) {
   return fillCourt(next, courtId, random);
 }
 
+// Stop a game without a result: the four go back to the top of the line, as
+// they were (partners stay partners), because they have not had their game.
+export function cancelGame(session, courtId) {
+  const next = clone(session);
+  const court = next.courts.find((c) => c.id === courtId);
+  if (!court?.teams.length) return next;
+  const back = court.teams.flatMap((team) => (team.picked && next.allowPicks
+    ? [{ id: next.nextId++, p: team.p, addedBy: null }]
+    : team.p.map((n) => ({ id: next.nextId++, p: [n], addedBy: null }))));
+  next.queue.unshift(...back);
+  court.teams = [];
+  return next;
+}
+
+// Swap a player during a game (an injury, someone has to leave). The new player
+// comes from the waiting line; the one going off rests at the back of it, on a break.
+export function replacePlayer(session, courtId, outName, entryId) {
+  const next = clone(session);
+  const team = next.courts.find((c) => c.id === courtId)?.teams.find((t) => t.p.includes(outName));
+  const entry = next.queue.find((e) => e.id === entryId);
+  if (!team || !entry || entry.p.length !== 1 || entry.away) return next;
+  team.p = team.p.map((n) => (n === outName ? entry.p[0] : n));
+  team.picked = false;
+  next.queue = next.queue.filter((e) => e.id !== entryId);
+  next.queue.push({ id: next.nextId++, p: [outName], addedBy: null, away: true });
+  return next;
+}
+
+// Correct a saved game. A score with a clear winner decides it, as when finishing.
+export function editResult(session, resultId, score, winner = null) {
+  const next = clone(session);
+  const result = next.results.find((r) => r.id === resultId);
+  if (result) Object.assign(result, { score, winner: resultWinner(score, winner) });
+  return next;
+}
+
+// Remove a saved game that should not count.
+export function deleteResult(session, resultId) {
+  const next = clone(session);
+  const result = next.results.find((r) => r.id === resultId);
+  if (!result) return next;
+  next.results = next.results.filter((r) => r !== result);
+  result.teams.flat().forEach((n) => {
+    if (next.games[n]) next.games[n] -= 1;
+  });
+  return next;
+}
+
 // ---------- End of session ----------
 
 // Every name checked in this session: played, waiting or on court.
@@ -340,9 +402,16 @@ export function allPlayers(session) {
   return [...names];
 }
 
+// The points of a scored game. Best-of-3 badminton scores games won (2-0) and
+// keeps the real points next to them.
+export const pointsOf = (result) => result.score?.points ?? result.score;
+
 // Player standings from the results. A score, or a winner the manager picked,
 // decides wins and losses; games with neither still count as played.
-// Order: wins, then win rate, then point difference, then points scored.
+// Order: win rate, adjusted so a short streak does not beat a long good record
+// (one extra win and one extra loss are added for sorting only). Ties go to point
+// difference per game, then wins, then games played, then points scored.
+// So playing more never helps by itself, and 3-0 beats 4-6.
 // Players who never played come last with rank null.
 export function rankings(results, players = []) {
   const table = new Map();
@@ -363,8 +432,9 @@ export function rankings(results, players = []) {
       }
       const mine = i === 0 ? r.score.a : r.score.b;
       const theirs = i === 0 ? r.score.b : r.score.a;
-      p.pointsFor += mine;
-      p.pointsAgainst += theirs;
+      const points = pointsOf(r);
+      p.pointsFor += i === 0 ? points.a : points.b;
+      p.pointsAgainst += i === 0 ? points.b : points.a;
       if (mine > theirs) p.wins += 1;
       if (mine < theirs) p.losses += 1;
     }));
@@ -374,7 +444,14 @@ export function rankings(results, players = []) {
     return { ...p, diff: p.pointsFor - p.pointsAgainst, winRate: decided ? p.wins / decided : 0 };
   });
   // Anyone who played ranks above anyone who did not.
-  const key = (p) => [p.played > 0 ? 1 : 0, p.wins, p.winRate, p.diff, p.pointsFor];
+  const key = (p) => [
+    p.played > 0 ? 1 : 0,
+    (p.wins + 1) / (p.wins + p.losses + 2),
+    p.played ? p.diff / p.played : 0,
+    p.wins,
+    p.played,
+    p.pointsFor,
+  ];
   list.sort((x, y) => {
     const kx = key(x);
     const ky = key(y);

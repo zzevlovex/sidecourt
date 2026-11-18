@@ -44,8 +44,8 @@
   <section>
     <h2>What we store</h2>
     <ul>
-      <li><strong>With an account:</strong> your display name, player code, the games and open play sessions linked to you, and your recovery email if you add one. Your key is stored only in scrambled (hashed) form.</li>
-      <li><strong>During open play:</strong> the session name, location, courts, player names, waiting line and scores, so the lobby and scorer links work.</li>
+      <li><strong>With an account:</strong> your display name, player code, the games and open play sessions linked to you, and your recovery email if you add one. Your key is stored only in scrambled (hashed) form, along with a short lookup code made from it so you can sign in. Accounts created before November 18, 2026 are updated to this the next time they sign in.</li>
+      <li><strong>During open play:</strong> the session name, location, courts, player names, waiting line and scores, so the lobby and scorer links work. If the manager is signed in, a private copy is kept so they can resume the session on another device.</li>
       <li><strong>On your device only:</strong> the current session, past player names, saved groups and any account links a manager has made. Clearing your browser data removes them.</li>
     </ul>
     <p>We do not sell your information or show ads.</p>
@@ -62,7 +62,8 @@
 
   <section>
     <h2>Services we rely on</h2>
-    <p>Accounts and online data are handled by Supabase. The website is hosted by Cloudflare. Fonts load from Google Fonts. These services receive technical information such as your IP address when your device connects to them.</p>
+    <p>Accounts and online data are handled by Supabase. The website is hosted by Cloudflare. These services receive technical information such as your IP address when your device connects to them.</p>
+    <p>If the app crashes, it records the error message and the page it happened on, for up to 30 days, so we can fix it. This does not include your key or scorer links.</p>
   </section>
 
   <section>

@@ -2,10 +2,12 @@
 // for recovery, new key. Uses Supabase Auth: the key is the account password
 // (Supabase stores it hashed and limits wrong guesses).
 import { supabase } from './supabase.js';
-import { newKey, newPlayerCode, parseKey, keyEmail } from './logic/keys.js';
+import { newKey, newPlayerCode, parseKey, keyEmail, keyLookupId } from './logic/keys.js';
 import { remove } from './storage.js';
 import { store } from './state.svelte.js';
 import { forgetLinks } from './roster.svelte.js';
+
+const HIDDEN_DOMAIN = '@keys.sidecourt.invalid';
 
 class Account {
   ready = $state(!supabase); // true once we know whether someone is signed in
@@ -21,12 +23,22 @@ class Account {
   // The email the person added, if any (not the hidden key address).
   get email() {
     const e = this.user?.email ?? '';
-    return e.endsWith('@keys.sidecourt.invalid') ? null : e;
+    return e.endsWith(HIDDEN_DOMAIN) ? null : e;
   }
 
   // An email change waiting for the person to click the confirmation link.
   get pendingEmail() {
-    return this.user?.new_email ?? null;
+    const e = this.user?.new_email ?? null;
+    return e?.endsWith(HIDDEN_DOMAIN) ? null : e;
+  }
+
+  // Points the account at a new key's lookup id, and replaces the hidden sign-in
+  // address too, because older ones contain the first half of the key.
+  async #useLookupId(keyId) {
+    const { error } = await supabase.from('profiles').update({ key_id: keyId }).eq('id', this.user.id);
+    if (error) throw error;
+    this.profile = this.profile ? { ...this.profile, key_id: keyId } : this.profile;
+    if ((this.user.email ?? '').endsWith(HIDDEN_DOMAIN)) await supabase.rpc('move_login_address');
   }
 
   async loadProfile() {
@@ -44,7 +56,7 @@ class Account {
     const name = displayName.trim();
     if (!name) throw new Error('Enter your name.');
     const key = newKey();
-    const { keyId } = parseKey(key);
+    const keyId = await keyLookupId(key);
     this.creating = true;
     try {
       return await this.#createWithKey(name, key, keyId);
@@ -75,11 +87,22 @@ class Account {
   async signIn(input) {
     const parsed = parseKey(input);
     if (!parsed) throw new Error('That does not look like a key. It has 16 letters and numbers, like ABCD-EFGH-JKMN-PQRS.');
-    const { data: email, error } = await supabase.rpc('login_email', { p_key_id: parsed.keyId });
+    // Current accounts are found by the one-way id; older ones by the key's first half.
+    const lookupId = await keyLookupId(parsed.key);
+    let { data: email, error } = await supabase.rpc('login_email', { p_key_id: lookupId });
     if (error) throw error;
+    const older = !email;
+    if (older) {
+      ({ data: email, error } = await supabase.rpc('login_email', { p_key_id: parsed.keyId }));
+      if (error) throw error;
+    }
     if (!email) throw new Error('No account has that key.');
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: parsed.key });
+    const { data: signedIn, error: signInError } = await supabase.auth.signInWithPassword({ email, password: parsed.key });
     if (signInError) throw new Error(signInError.status === 429 ? 'Too many tries. Wait a few minutes and try again.' : 'That key is not right.');
+    if (older) {
+      this.user = signedIn.user;
+      await this.#useLookupId(lookupId).catch(() => {}); // tried again at the next sign-in
+    }
   }
 
   async signOut() {
@@ -96,12 +119,9 @@ class Account {
   // Replaces the key: the old one stops working. Returns the new key to show once.
   async replaceKey() {
     const key = newKey();
-    const { keyId } = parseKey(key);
     const { error } = await supabase.auth.updateUser({ password: key });
     if (error) throw error;
-    const { error: updateError } = await supabase.from('profiles').update({ key_id: keyId }).eq('id', this.user.id);
-    if (updateError) throw updateError;
-    this.profile = { ...this.profile, key_id: keyId };
+    await this.#useLookupId(await keyLookupId(key));
     this.recovering = false;
     return key;
   }

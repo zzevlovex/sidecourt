@@ -1,12 +1,13 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   // Final standings after open play ends: podium, full ranking, every game.
-  import { toast } from '$lib/toasts.svelte.js';
-  import { plural, signed } from '$lib/format.js';
+  import { toast } from '#lib/toasts.svelte.js';
+  import { plural, signed } from '#lib/format.js';
   import ResultRow from './ResultRow.svelte';
   import ShareDialog from './ShareDialog.svelte';
   import RankingList from './RankingList.svelte';
   import { showStandings } from './actions.js';
+  import UploadStatus from '#lib/components/UploadStatus.svelte';
 
   let { summary: s } = $props();
   let sharing = $state(false);
@@ -37,6 +38,8 @@
       <span class="stat-chip"><strong>{ranked.length}</strong> players</span>
     </div>
   </header>
+
+  <UploadStatus />
 
   {#if podium.length}
     <ol class="podium" aria-label="Top three">
@@ -70,7 +73,7 @@
         <div class="legend">
         <p><strong>W–L</strong> wins and losses.</p>
         <p><strong>Pts +/−</strong> points scored minus points given up, across all scored games. <span class="pos">+6</span> means they scored 6 more than their opponents; <span class="neg">−4</span> means 4 fewer.</p>
-        <p><strong>Order</strong> most wins first. Ties go to the higher win %, then the better Pts +/−.</p>
+        <p><strong>Order</strong> best win record first, so playing more games does not help by itself. One or two games count for less than a long record. Ties go to the better Pts +/− per game, then most wins.</p>
         <p class="muted">Games won by picking a winner (no score) count as a win but add no points. Games with no score and no winner count as played only.</p>
         </div>
       </details>

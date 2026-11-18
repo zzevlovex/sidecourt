@@ -1,9 +1,9 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   import { flip } from 'svelte/animate';
   import { fly } from 'svelte/transition';
-  import { toasts, dismiss, toast } from '$lib/toasts.svelte.js';
-  import { motion } from '$lib/motion.js';
+  import { toasts, dismiss, toast } from '#lib/toasts.svelte.js';
+  import { motion } from '#lib/motion.js';
 
   const ICONS = { success: 'check', warn: 'alert', info: 'info' };
 

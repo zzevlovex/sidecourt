@@ -1,13 +1,15 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
+  import Icon from '#lib/components/Icon.svelte';
+  import '@fontsource-variable/sora/index.css';
+  import '@fontsource-variable/manrope/index.css';
   import '../app.css';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
-  import Toasts from '$lib/components/Toasts.svelte';
-  import Logo from '$lib/components/Logo.svelte';
+  import Toasts from '#lib/components/Toasts.svelte';
+  import Logo from '#lib/components/Logo.svelte';
   import { onMount } from 'svelte';
-  import { startLobbySync } from '$lib/lobby.svelte.js';
-  import { account } from '$lib/account.svelte.js';
+  import { startLobbySync } from '#lib/lobby.svelte.js';
+  import { account } from '#lib/account.svelte.js';
 
   // Keeps the online lobby in step with the open play session on this device.
   onMount(() => startLobbySync());

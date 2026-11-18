@@ -1,12 +1,12 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   // Home. One clear main action (players joining open play), then the
   // manager actions, then small extras.
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { store } from '$lib/state.svelte.js';
-  import { toast } from '$lib/toasts.svelte.js';
-  import { codeFrom } from '$lib/logic/lobby.js';
+  import { store } from '#lib/state.svelte.js';
+  import { toast } from '#lib/toasts.svelte.js';
+  import { codeFrom } from '#lib/logic/lobby.js';
 
   let code = $state('');
 

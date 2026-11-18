@@ -1,19 +1,20 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   // Scoreboard. Works on its own, for a court in open play (/scoreboard?court=1),
   // or on a helper's phone from a scorer link (/scoreboard?lobby=CODE&court=1&key=SECRET):
   // then the court comes from the online lobby and every tap is sent to the manager's board.
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { store } from '$lib/state.svelte.js';
-  import { toast } from '$lib/toasts.svelte.js';
-  import { speak } from '$lib/format.js';
-  import { newMatch, rally, undo, winner, callText, isGamePoint, serviceCourt } from '$lib/logic/scoring.js';
-  import { endGame, upcoming, waitingCount } from '$lib/logic/queue.js';
-  import ScoreSetup from '$lib/scoreboard/ScoreSetup.svelte';
-  import { fetchLobby, fetchScores, pushScore, POLL_MS } from '$lib/lobby.svelte.js';
-  import { fitsCourt } from '$lib/logic/lobby.js';
+  import { store } from '#lib/state.svelte.js';
+  import { toast } from '#lib/toasts.svelte.js';
+  import { speak } from '#lib/format.js';
+  import { newMatch, rally, undo, winner, callText, isGamePoint, serviceCourt, matchScore, usesServerNumber } from '#lib/logic/scoring.js';
+  import { endGame, upcoming, waitingCount } from '#lib/logic/queue.js';
+  import ScoreSetup from '#lib/scoreboard/ScoreSetup.svelte';
+  import { fetchLobby, fetchScores, pushScore, POLL_MS } from '#lib/lobby.svelte.js';
+  import { scoreForCourt, mergeLobby } from '#lib/logic/lobby.js';
+  import { poll } from '#lib/poll.js';
 
   const courtId = $derived(Number(page.url.searchParams.get('court')) || null);
   /* ---------- Scorer link: this phone scores one court of someone else's open play ---------- */
@@ -31,9 +32,11 @@
     const code = lobbyCode;
     const id = courtId;
     let first = true;
+    let held = null;
     const tick = async () => {
       try {
-        const row = await fetchLobby(code);
+        const row = mergeLobby(held, await fetchLobby(code, held?.updated_at ?? null));
+        held = row;
         if (!row || !row.open) {
           remoteStatus = 'closed';
           return;
@@ -50,9 +53,7 @@
         if (first) remoteStatus = 'error';
       }
     };
-    tick();
-    const timer = setInterval(tick, POLL_MS);
-    return () => clearInterval(timer);
+    return poll(tick, POLL_MS);
   });
 
   // Send the newest score; taps made while one is on its way go out next, in order.
@@ -79,14 +80,14 @@
   const session = $derived(remote ? remoteSession : courtId ? store.session : null);
   const court = $derived(session?.courts.find((c) => c.id === courtId) ?? null);
   // For a court, only the saved score of the game now on it counts.
-  const match = $derived(remote ? (fitsCourt(remoteMatch, court) ? remoteMatch : null) : courtId ? store.courtMatch(court) : store.match(null));
+  const match = $derived(remote ? scoreForCourt(remoteMatch, court) : courtId ? store.courtMatch(court) : store.match(null));
 
   // A court with a game on but no score yet starts at 0–0.
   $effect(() => {
     if (!courtId || court?.teams.length !== 2 || match) return;
     if (remote && remoteStatus !== 'live') return;
     const names = { a: court.teams[0].p.join(' / '), b: court.teams[1].p.join(' / ') };
-    const fresh = { ...newMatch({ sport: session.sport, doubles: true, names }), game: court.game };
+    const fresh = { ...newMatch({ sport: session.sport, doubles: true, names, ...session.format }), game: court.game };
     if (remote) remoteMatch = fresh;
     else store.setMatch(courtId, fresh);
   });
@@ -102,19 +103,21 @@
 
   const title = $derived(courtId ? `Court ${courtId}` : badminton ? 'Badminton' : 'Pickleball');
   const rules = $derived(
-    !match ? '' : badminton ? 'Best of 3 · To 21 · Cap 30' : `${match.doubles ? 'Doubles' : 'Singles'} · To ${match.target} · Win by 2`,
+    !match ? '' : badminton
+      ? `${match.bestOf === 1 ? 'One game' : `Best of ${match.bestOf}`} · To ${match.target} · Cap ${match.cap}`
+      : `${match.doubles ? 'Doubles' : 'Singles'} · ${match.scoring === 'rally' ? 'Rally scoring' : 'Side-out'} · To ${match.target} · Win by 2`,
   );
   const point = $derived(match && !won ? isGamePoint(match) : false);
   const matchPoint = $derived(point && badminton && Math.max(match.games.a, match.games.b) === Math.ceil(match.bestOf / 2) - 1);
   const callParts = $derived(match ? callText(match).split(' – ') : []);
-  const callLabels = $derived(badminton || !match?.doubles ? ['Server', 'Receiver'] : ['Server', 'Receiver', 'Server #']);
+  const callLabels = $derived(match && usesServerNumber(match) ? ['Server', 'Receiver', 'Server #'] : ['Server', 'Receiver']);
   const nextGame = $derived(courtId && session ? upcoming(session, 1)[0] ?? null : null);
 
   function status(side) {
     if (won) return won === side ? 'Winner' : '';
     if (match.serving !== side) return 'Receiving';
     if (badminton) return `Serving · ${serviceCourt(match)}`;
-    return match.doubles ? `Serving · Server ${match.server}` : 'Serving';
+    return usesServerNumber(match) ? `Serving · Server ${match.server}` : 'Serving';
   }
 
   /* ---------- Keep the screen awake while scoring ---------- */
@@ -185,8 +188,7 @@
 
   // Send the result to the open play board and call the next four players.
   function saveAndCallNext() {
-    const score = badminton ? { a: match.games.a, b: match.games.b } : { a: match.a, b: match.b };
-    store.setSession(endGame(store.session, courtId, score));
+    store.setSession(endGame(store.session, courtId, matchScore(match)));
     store.setMatch(courtId, null);
     goto(`${resolve('/openplay')}?finished=${courtId}`);
   }
@@ -244,7 +246,7 @@
       <section class="win-card pop">
         <span class="trophy"><Icon name="trophy" size={36} /></span>
         <div class="grow">
-          <span class="label">{badminton ? 'Match' : 'Game'} over · {badminton ? `${match.games.a}–${match.games.b} in games` : `${match.a}–${match.b}`}</span>
+          <span class="label">{badminton ? 'Match' : 'Game'} over · {matchScore(match).points ? `${match.games.a}–${match.games.b} in games` : `${match.a}–${match.b}`}</span>
           <h2>{match.names[won]} win!</h2>
         </div>
         {#if remote}
@@ -278,7 +280,7 @@
         </div>
         <p class="serve-line">
           <strong>{match.names[match.serving]}</strong>
-          {#if badminton}serving from the {serviceCourt(match)} court{:else if match.doubles}serving · Server {match.server}{:else}serving{/if}
+          {#if badminton}serving from the {serviceCourt(match)} court{:else if usesServerNumber(match)}serving · Server {match.server}{:else}serving{/if}
         </p>
       </section>
     {/if}
@@ -296,7 +298,7 @@
           <span class="side-info">
             <span class="side-name">{match.names[side]}</span>
             <span class="side-status">{#if serving}<span class="ball" aria-hidden="true"></span>{/if}{#if won === side}<Icon name="trophy" size={16} />{/if}{status(side)}</span>
-            {#if badminton}
+            {#if badminton && match.bestOf > 1}
               <span class="games" aria-label="{match.games[side]} games won">
                 {#each Array.from({ length: Math.ceil(match.bestOf / 2) }) as _, i (i)}
                   <span class={['dot', i < match.games[side] && 'on']}></span>
@@ -312,7 +314,7 @@
       {/each}
     </div>
 
-    {#if badminton && match.finished.length}
+    {#if badminton && match.bestOf > 1 && match.finished.length}
       <p class="muted center small">
         Finished games:
         {#each match.finished as g, i (i)}{i ? ' · ' : ''}<strong>G{i + 1}</strong> {g.a}–{g.b}{/each}

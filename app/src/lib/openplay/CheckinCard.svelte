@@ -1,16 +1,16 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
-  import { store } from '$lib/state.svelte.js';
+  import Icon from '#lib/components/Icon.svelte';
+  import { store } from '#lib/state.svelte.js';
   import { ui, drafts } from './ui.svelte.js';
   import { checkIn, checkInByCode, checkInGroup, saveCurrentAsGroup, addRegulars } from './actions.js';
-  import { hasPlayer } from '$lib/logic/queue.js';
-  import { suggestPlayers, withoutLastTyped } from '$lib/logic/roster.js';
-  import { roster, refreshLinks } from '$lib/roster.svelte.js';
+  import { hasPlayer } from '#lib/logic/queue.js';
+  import { suggestPlayers, withoutLastTyped } from '#lib/logic/roster.js';
+  import { roster, refreshLinks } from '#lib/roster.svelte.js';
   import RegularsDialog from './RegularsDialog.svelte';
-  import { groups, removeGroup } from '$lib/groups.svelte.js';
+  import { groups, removeGroup } from '#lib/groups.svelte.js';
   import { resolve } from '$app/paths';
-  import { account } from '$lib/account.svelte.js';
-  import Scanner from '$lib/components/Scanner.svelte';
+  import { account } from '#lib/account.svelte.js';
+  import Scanner from '#lib/components/Scanner.svelte';
 
   // Any device with a camera can scan (built-in reader, or jsQR on iPhone and desktop).
   const canScan = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia);

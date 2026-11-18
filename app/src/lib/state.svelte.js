@@ -6,6 +6,7 @@
 // the only file that needs to talk to the database: keep the same methods and
 // have them read/write Supabase or Firebase instead of localStorage.
 import { load, save, remove, KEYS, matchKey } from './storage.js';
+import { matchScore } from './logic/scoring.js';
 
 class Store {
   // $state.raw: these objects are always replaced, never edited in place,
@@ -61,12 +62,11 @@ class Store {
   }
 
   // Score kept on the scoreboard for this court's game (null if none yet).
-  // final is what gets saved: points for pickleball, games won for badminton.
+  // final is what gets saved (see matchScore).
   liveScore(court) {
     const match = this.courtMatch(court);
     if (!match || !match.history.length) return null;
-    const final = match.sport === 'badminton' ? { a: match.games.a, b: match.games.b } : { a: match.a, b: match.b };
-    return { match, final };
+    return { match, final: matchScore(match) };
   }
 }
 

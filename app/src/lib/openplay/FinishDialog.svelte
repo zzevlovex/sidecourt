@@ -1,8 +1,8 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   // "Who won?" when a game is finished without a clear score.
-  import Modal from '$lib/components/Modal.svelte';
-  import { store } from '$lib/state.svelte.js';
+  import Modal from '#lib/components/Modal.svelte';
+  import { store } from '#lib/state.svelte.js';
   import { ui } from './ui.svelte.js';
   import { pickWinner } from './actions.js';
 

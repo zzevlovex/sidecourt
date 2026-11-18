@@ -1,5 +1,5 @@
 // Open play screen state that is not saved with the session.
-import { load, KEYS } from '$lib/storage.js';
+import { load, KEYS } from '#lib/storage.js';
 
 export const ui = $state({
   help: !load(KEYS.help), // the guide shows until the manager closes it once
@@ -12,6 +12,8 @@ export const ui = $state({
   finishScore: null,
   focusCheckin: false,
   scoring: null, // court id whose scorer link is shown
+  managing: null, // court id in the "Change this game" dialog
+  editingResult: null, // result id being corrected
 });
 
 // Typed but not yet saved.

@@ -1,9 +1,9 @@
 <script>
   // "End open play": what to do with games still on court, and a preview of the top 3.
-  import Modal from '$lib/components/Modal.svelte';
-  import { store } from '$lib/state.svelte.js';
-  import { finishSession } from '$lib/logic/queue.js';
-  import { plural } from '$lib/format.js';
+  import Modal from '#lib/components/Modal.svelte';
+  import { store } from '#lib/state.svelte.js';
+  import { finishSession } from '#lib/logic/queue.js';
+  import { plural } from '#lib/format.js';
   import { ui } from './ui.svelte.js';
   import { scoreInProgress, liveScoresToCount, confirmEnd } from './actions.js';
 

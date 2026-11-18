@@ -1,19 +1,20 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   // Players follow an open play from their own phone: courts, who's next,
   // their place in line, recent results. Signed-in players can join the line.
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { account } from '$lib/account.svelte.js';
-  import { supabase } from '$lib/supabase.js';
-  import { toast } from '$lib/toasts.svelte.js';
-  import { upcoming, waitingCount } from '$lib/logic/queue.js';
-  import { codeFrom } from '$lib/logic/lobby.js';
-  import { fetchLobby, joinLobby, POLL_MS } from '$lib/lobby.svelte.js';
-  import { teamNames } from '$lib/format.js';
-  import Matchup from '$lib/openplay/Matchup.svelte';
-  import ResultRow from '$lib/openplay/ResultRow.svelte';
+  import { account } from '#lib/account.svelte.js';
+  import { supabase } from '#lib/supabase.js';
+  import { toast } from '#lib/toasts.svelte.js';
+  import { upcoming, waitingCount } from '#lib/logic/queue.js';
+  import { codeFrom, linkToken, mergeLobby } from '#lib/logic/lobby.js';
+  import { poll } from '#lib/poll.js';
+  import { fetchLobby, joinLobby, POLL_MS } from '#lib/lobby.svelte.js';
+  import { teamNames } from '#lib/format.js';
+  import Matchup from '#lib/openplay/Matchup.svelte';
+  import ResultRow from '#lib/openplay/ResultRow.svelte';
 
   const code = $derived(codeFrom(page.url.searchParams.get('code') ?? ''));
   let typed = $state('');
@@ -27,10 +28,16 @@
   $effect(() => {
     if (!code || !supabase) return;
     let stop = false;
+    let held = null; // what this phone already has
+    let ticks = 0;
     async function refresh() {
+      // An ended open play rarely changes (only if the manager undoes it): check less often.
+      ticks += 1;
+      if (held && !held.open && ticks % 8) return;
       try {
-        const found = await fetchLobby(code);
+        const found = mergeLobby(held, await fetchLobby(code, held?.updated_at ?? null));
         if (stop) return;
+        held = found;
         lobby = found;
         missing = !found;
         offline = false;
@@ -38,19 +45,26 @@
         offline = true;
       }
     }
-    refresh();
-    const timer = setInterval(refresh, POLL_MS);
+    const stopPolling = poll(refresh, POLL_MS);
     return () => {
       stop = true;
-      clearInterval(timer);
+      stopPolling();
     };
   });
 
   const s = $derived(lobby?.state);
   const games = $derived(s ? upcoming(s, 2) : []);
   const myName = $derived(account.profile?.display_name ?? null);
-  // A shared name gets " (XXXX)" added by the manager's app.
-  const isMe = (name) => myName && (name === myName || name.startsWith(`${myName} (`));
+  // Which name in this lobby is linked to my account (never guessed from the name).
+  let myToken = $state(null);
+  $effect(() => {
+    const id = account.user?.id;
+    if (id && code) linkToken(id, code).then((token) => (myToken = token));
+    else myToken = null;
+  });
+  const linkedName = $derived(s?.links && myToken ? s.links[myToken] ?? null : null);
+  // Lobbies from before links existed can only go by the name.
+  const isMe = (name) => (s?.links ? name === linkedName : Boolean(myName) && (name === myName || name.startsWith(`${myName} (`)));
   const myPlace = $derived(s && myName ? s.queue.findIndex((e) => e.p.some(isMe)) : -1);
   const onCourt = $derived(s && myName ? s.courts.find((c) => c.teams.some((t) => t.p.some(isMe))) : null);
 

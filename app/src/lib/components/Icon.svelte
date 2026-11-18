@@ -51,5 +51,6 @@
   aria-hidden="true"
 >
   <!-- Safe: fixed strings from the table above, never user input. -->
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
   {@html PATHS[name]}
 </svg>

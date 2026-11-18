@@ -1,6 +1,6 @@
 <script>
   // The SC mark. Decorative: it always sits beside the name "Sidecourt".
-  import { LOGO_SHAPES, LOGO_SIZE, logoPath } from '$lib/logic/logo.js';
+  import { LOGO_SHAPES, LOGO_SIZE, logoPath } from '#lib/logic/logo.js';
 
   let { size = 28 } = $props();
 </script>

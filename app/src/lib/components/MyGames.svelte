@@ -1,9 +1,9 @@
 <script>
   // The signed-in player's saved games: totals, then each game.
-  import Icon from '$lib/components/Icon.svelte';
-  import { account } from '$lib/account.svelte.js';
-  import { myGames, removeFromHistory } from '$lib/history.svelte.js';
-  import { toast } from '$lib/toasts.svelte.js';
+  import Icon from '#lib/components/Icon.svelte';
+  import { account } from '#lib/account.svelte.js';
+  import { myGames, removeFromHistory } from '#lib/history.svelte.js';
+  import { toast } from '#lib/toasts.svelte.js';
 
   const STEP = 5; // shown at first, and added by each "See more"
 

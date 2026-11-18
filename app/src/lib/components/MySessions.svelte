@@ -1,14 +1,14 @@
 <script>
   // Open play history: sessions the signed-in person played in or hosted.
   // Each one can show its ranking again and make share cards.
-  import { account } from '$lib/account.svelte.js';
-  import { mySessions, removeFromHistory } from '$lib/history.svelte.js';
-  import { toast } from '$lib/toasts.svelte.js';
-  import { plural } from '$lib/format.js';
+  import { account } from '#lib/account.svelte.js';
+  import { mySessions, removeFromHistory } from '#lib/history.svelte.js';
+  import { toast } from '#lib/toasts.svelte.js';
+  import { plural } from '#lib/format.js';
   import Icon from './Icon.svelte';
   import Modal from './Modal.svelte';
-  import RankingList from '$lib/openplay/RankingList.svelte';
-  import ShareDialog from '$lib/openplay/ShareDialog.svelte';
+  import RankingList from '#lib/openplay/RankingList.svelte';
+  import ShareDialog from '#lib/openplay/ShareDialog.svelte';
 
   const STEP = 3; // shown at first, and added by each "See more"
 
@@ -42,8 +42,12 @@
 
   const myName = $derived(account.profile?.display_name ?? null);
   // A shared name gets " (XXXX)" added by the host's app.
-  const isMe = (name) => Boolean(myName) && (name === myName || name.startsWith(`${myName} (`));
-  const mine = (s) => s.summary.standings.find((p) => p.played && isMe(p.name)) ?? null;
+  const isMeIn = (s, name) => {
+    // Sessions list which name is which account; older ones can only go by the name.
+    if (s.summary.players) return s.summary.players[name] === account.user?.id;
+    return Boolean(myName) && (name === myName || name.startsWith(`${myName} (`));
+  };
+  const mine = (s) => s.summary.standings.find((p) => p.played && isMeIn(s, p.name)) ?? null;
   const ranked = (s) => s.summary.standings.filter((p) => p.played);
   const day = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 </script>
@@ -96,7 +100,7 @@
         <p class="eyebrow">Final standings · {day(ranking.ended_at)}</p>
         <h2 id="ranking-title">{ranking.name}</h2>
       </div>
-      <RankingList ranked={ranked(ranking)} highlight={isMe} />
+      <RankingList ranked={ranked(ranking)} highlight={(name) => isMeIn(ranking, name)} />
       <div class="row wrap end-actions">
         <button class="btn btn-ghost" type="button" onclick={() => (ranking = null)}>Close</button>
         <button class="btn btn-light grow" type="button" onclick={() => { sharing = ranking; ranking = null; }}><Icon name="share" size={18} /> Share cards</button>

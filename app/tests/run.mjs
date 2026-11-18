@@ -1,15 +1,15 @@
 // Quick checks for the rules. Run with:  node tests/run.mjs
 import assert from 'node:assert/strict';
-import { newMatch, rally, undo, winner, callText, serviceCourt, isGamePoint } from '../src/lib/logic/scoring.js';
-import { newSession, addPlayers, fillCourt, endGame, pickNext, setAllowPicks, waitingCount, playingCount, moveUp, removeEntry, upcoming, reshuffle, rankings, finishSession, pairUp, splitPair, playHistory, splitCost, setAway } from '../src/lib/logic/queue.js';
+import { newMatch, rally, undo, winner, callText, serviceCourt, isGamePoint, matchScore } from '../src/lib/logic/scoring.js';
+import { newSession, addPlayers, fillCourt, endGame, pickNext, setAllowPicks, waitingCount, playingCount, moveUp, removeEntry, upcoming, reshuffle, rankings, finishSession, pairUp, splitPair, playHistory, splitCost, setAway, addCourt, removeCourt, cancelGame, replacePlayer, editResult, deleteResult } from '../src/lib/logic/queue.js';
 
 import { shareCards, overallStats, playerMatches, closestGames, STORY_SAFE } from '../src/lib/logic/shareCard.js';
 import qrcode from 'qrcode-generator';
 import jsQR from 'jsqr';
-import { publicState, codeFrom, fitsCourt } from '../src/lib/logic/lobby.js';
+import { publicState, codeFrom, fitsCourt, scoreForCourt, linkToken, linkTokens, mergeLobby } from '../src/lib/logic/lobby.js';
 import { recordPlayers, rankRoster, forgetPlayer, dropLinks, linkFor, lastTyped, withoutLastTyped, suggestPlayers } from '../src/lib/logic/roster.js';
 import { gameRows, sessionRow, validSummary } from '../src/lib/logic/history.js';
-import { newKey, newPlayerCode, parseKey, keyEmail, ALPHABET } from '../src/lib/logic/keys.js';
+import { newKey, newPlayerCode, parseKey, keyEmail, keyLookupId, ALPHABET } from '../src/lib/logic/keys.js';
 
 const play = (match, sides) => [...sides].reduce((m, s) => rally(m, s), match);
 
@@ -112,7 +112,74 @@ w = addPlayers(w, ['Y1', 'Y2']);
 w = reshuffle(w, () => 0.5);
 assert.ok(upcoming(w, 1)[0].some((team) => team.picked && team.p.join() === 'X1,X2'));
 
-// Rankings: wins first, then win rate, point difference, points scored; ties share a rank.
+// Rankings: a good record beats simply playing more.
+{
+  const g = (a, b, sa, sb) => ({ teams: [[a], [b]], score: { a: sa, b: sb } });
+  const r = [...Array(3).fill(g('Perfect', 'X', 11, 0)), ...Array(4).fill(g('Grinder', 'Y', 11, 9)), ...Array(6).fill(g('Y', 'Grinder', 11, 9))];
+  const t = rankings(r);
+  assert.ok(t.findIndex((p) => p.name === 'Perfect') < t.findIndex((p) => p.name === 'Grinder'));
+  // One lucky win does not beat a long winning record.
+  const s = rankings([g('Lucky', 'A', 11, 9), ...Array(6).fill(g('Steady', 'B', 11, 9)), ...Array(2).fill(g('C', 'Steady', 11, 9))]);
+  assert.ok(s.findIndex((p) => p.name === 'Steady') < s.findIndex((p) => p.name === 'Lucky'));
+  // No scores at all: most games played first.
+  const none = rankings([{ teams: [['P'], ['Q']], score: null }, { teams: [['P'], ['R']], score: null }]);
+  assert.equal(none[0].name, 'P');
+  // Best-of-3: games decide the win, real points fill the points columns.
+  const [w] = rankings([{ teams: [['W'], ['L']], score: { a: 2, b: 1, points: { a: 55, b: 50 } } }]);
+  assert.deepEqual([w.name, w.wins, w.pointsFor, w.diff], ['W', 1, 55, 5]);
+}
+
+// Game formats.
+{
+  let m = newMatch({ sport: 'pickleball', scoring: 'rally', target: 15 });
+  m = rally(m, 'b');
+  assert.deepEqual([m.a, m.b, m.serving], [0, 1, 'b']); // the receiving side scores too
+  assert.equal(callText(m), '1 – 0'); // no server number
+  const won = 'a'.repeat(15).split('').reduce((x, s) => rally(x, s), newMatch({ scoring: 'rally', target: 15 }));
+  assert.equal(winner(won), 'a');
+  const almost = 'a'.repeat(10).split('').reduce((x, s) => rally(x, s), rally(newMatch({ scoring: 'rally' }), 'b'));
+  assert.ok(isGamePoint(rally(almost, 'b')) || isGamePoint(almost));
+
+  const one = 'a'.repeat(15).split('').reduce((x, s) => rally(x, s), newMatch({ sport: 'badminton', target: 15, bestOf: 1 }));
+  assert.equal(winner(one), 'a');
+  assert.deepEqual(matchScore(one), { a: 15, b: 0 }); // one game: the real points
+  assert.equal(newMatch({ sport: 'badminton', target: 15 }).cap, 21);
+  const three = 'a'.repeat(42).split('').reduce((x, s) => rally(x, s), newMatch({ sport: 'badminton' }));
+  assert.deepEqual(matchScore(three), { a: 2, b: 0, points: { a: 42, b: 0 } });
+  assert.deepEqual(matchScore(newMatch({ sport: 'pickleball' })), { a: 0, b: 0 });
+}
+
+// Running a session: cancel, swap, courts, corrections.
+{
+  let s = addPlayers(newSession({ courts: 2 }), ['A', 'B', 'C', 'D', 'E', 'F']);
+  s = fillCourt(s, 1, () => 0);
+  const on = s.courts[0].teams.flatMap((t) => t.p);
+  const cancelled = cancelGame(s, 1);
+  assert.deepEqual(cancelled.queue.slice(0, 4).map((e) => e.p[0]), on);
+  assert.equal(cancelled.courts[0].teams.length, 0);
+  assert.equal(cancelled.results.length, 0);
+
+  const swapped = replacePlayer(s, 1, on[0], s.queue[0].id);
+  assert.ok(swapped.courts[0].teams.flatMap((t) => t.p).includes('E') && !swapped.courts[0].teams.flatMap((t) => t.p).includes(on[0]));
+  assert.deepEqual([swapped.queue.at(-1).p[0], swapped.queue.at(-1).away], [on[0], true]);
+  assert.equal(replacePlayer(setAway(s, s.queue[0].id, true), 1, on[0], s.queue[0].id).queue.length, 2); // nobody on a break
+
+  assert.equal(removeCourt(s, 1).courts.length, 2); // a game is on it
+  let c = removeCourt(s, 2);
+  assert.deepEqual(c.courts.map((x) => x.id), [1]);
+  assert.equal(removeCourt(cancelGame(c, 1), 1).courts.length, 1); // the last court stays
+  assert.deepEqual(addCourt(removeCourt(addCourt(s), 2)).courts.map((x) => x.id), [1, 3, 4]); // numbers are never reused while in use
+
+  let e = endGame(s, 1, { a: 11, b: 3 }, () => 0);
+  const id = e.results[0].id;
+  assert.equal(editResult(e, id, { a: 5, b: 11 }).results[0].winner, 'b');
+  assert.deepEqual([editResult(e, id, null, 'a').results[0].score, editResult(e, id, null, 'a').results[0].winner], [null, 'a']);
+  const gone = deleteResult(e, id);
+  assert.equal(gone.results.length, 0);
+  on.forEach((n) => assert.equal(gone.games[n], 0));
+}
+
+// Rankings: ties share a rank.
 const table = rankings([
   { court: 1, teams: [['Ana', 'Ben'], ['Cy', 'Dee']], score: { a: 11, b: 4 } },
   { court: 1, teams: [['Ana', 'Cy'], ['Ben', 'Dee']], score: { a: 11, b: 9 } },
@@ -254,6 +321,21 @@ assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
   for (const bad of [null, {}, { broken: true }, { ...sum, standings: [{ name: 'A' }] }, { ...sum, results: [{ teams: 'x' }] }, { ...sum, sport: 'chess' }, { ...sum, endedAt: 'soon' }]) assert.ok(!validSummary(bad));
 }
 
+// Lobby identity and changed-only polling.
+{
+  const tokens = await linkTokens({ Ana: 'id-1', 'Ana (ABCD)': 'id-2' }, 'CODE22');
+  assert.equal(tokens[await linkToken('id-2', 'CODE22')], 'Ana (ABCD)');
+  assert.ok(!JSON.stringify(tokens).includes('id-1'));
+  assert.notEqual(await linkToken('id-1', 'CODE22'), await linkToken('id-1', 'OTHER2')); // differs per lobby
+  const old = { state: { x: 1 }, open: true, updated_at: 't1' };
+  assert.deepEqual(mergeLobby(old, { state: null, open: false, updated_at: 't1' }), { state: { x: 1 }, open: false, updated_at: 't1' });
+  assert.deepEqual(mergeLobby(old, { state: { x: 2 }, open: true, updated_at: 't2' }).state, { x: 2 });
+  assert.equal(mergeLobby(old, null), null);
+  const key = 'ABCD-EFGH-JKMN-PQRS';
+  const id = await keyLookupId(key);
+  assert.ok(/^[2-9A-HJ-NP-Z]{8}$/.test(id) && id !== 'ABCDEFGH' && id === await keyLookupId(key) && id !== await keyLookupId('ABCD-EFGH-JKMN-PQRT'));
+}
+
 // Scorer links: secrets never reach players; a remote score only counts for the game now on court.
 {
   assert.ok(!('scoreKeys' in publicState({ name: 'X', scoreKeys: { 1: 'SECRETSECRET' }, queue: [] })));
@@ -263,6 +345,8 @@ assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
   assert.ok(!fitsCourt({ ...m, game: 1 }, court)); // earlier game on the same court
   assert.ok(!fitsCourt({ ...m, names: { a: 'Ana / Cy', b: 'Ben / Dee' } }, court)); // other players
   for (const bad of [{ a: -1 }, { b: 'x' }, { a: 1.5 }, { history: 'no' }, { serving: 'z' }, { sport: 'badminton' }]) assert.ok(!fitsCourt({ ...m, ...bad }, court)); // not a real score
+  assert.deepEqual(scoreForCourt({ ...m, names: { a: 'Old / Ben', b: 'Cy / Dee' } }, court).names.a, 'Ana / Ben'); // a swapped player keeps the score
+  assert.equal(scoreForCourt({ ...m, game: 1 }, court), null);
   assert.ok(!fitsCourt(m, { ...court, teams: [] }) && !fitsCourt(null, court) && !fitsCourt({ game: 2 }, court));
 }
 

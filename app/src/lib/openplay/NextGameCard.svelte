@@ -1,11 +1,11 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
-  import { store } from '$lib/state.svelte.js';
-  import { waitingCount } from '$lib/logic/queue.js';
-  import { plural, teamNames } from '$lib/format.js';
+  import Icon from '#lib/components/Icon.svelte';
+  import { store } from '#lib/state.svelte.js';
+  import { waitingCount } from '#lib/logic/queue.js';
+  import { plural, teamNames } from '#lib/format.js';
   import Matchup from './Matchup.svelte';
   import { sendToCourt, shuffle } from './actions.js';
-  import { enter } from '$lib/enter.js';
+  import { enter } from '#lib/enter.js';
 
   // games: the next two games from upcoming().
   let { games } = $props();

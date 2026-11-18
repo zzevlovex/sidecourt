@@ -11,7 +11,7 @@
 // transparent image, to lay over a picture.
 // Each card is an SVG string; the app draws it onto a canvas to save a PNG.
 // System fonts only, because an image cannot load web fonts.
-import { resultWinner } from './queue.js';
+import { resultWinner, pointsOf } from './queue.js';
 
 const FONT = "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 const C = { bg: '#0a0d18', text: '#f1f3fa', soft: '#cfd5e6', muted: '#a2abc6', orange: '#ff8a4c', blue: '#7db4ff', green: '#6ee7a8', red: '#ff9aa8' };
@@ -132,7 +132,7 @@ export function overallStats(summary) {
   return {
     games: summary.games,
     players: summary.standings.filter((p) => p.played).length,
-    points: scored.reduce((sum, r) => sum + r.score.a + r.score.b, 0),
+    points: scored.reduce((sum, r) => sum + pointsOf(r).a + pointsOf(r).b, 0),
   };
 }
 

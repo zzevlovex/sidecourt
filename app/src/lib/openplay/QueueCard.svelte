@@ -1,11 +1,11 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   import { flip } from 'svelte/animate';
   import { fly } from 'svelte/transition';
-  import { store } from '$lib/state.svelte.js';
-  import { waitingCount } from '$lib/logic/queue.js';
-  import { plural } from '$lib/format.js';
-  import { motion } from '$lib/motion.js';
+  import { store } from '#lib/state.svelte.js';
+  import { waitingCount } from '#lib/logic/queue.js';
+  import { plural } from '#lib/format.js';
+  import { motion } from '#lib/motion.js';
   import { ui } from './ui.svelte.js';
   import { moveUp, removePlayer, pairWith, split, setBreak } from './actions.js';
 

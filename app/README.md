@@ -1,56 +1,48 @@
-# Sidecourt (SvelteKit version)
+# Sidecourt app
 
-Pickleball and badminton scoring with an open play queue manager.
-Built with SvelteKit (Svelte 5). Installs on phones as an app and works offline.
+Built with SvelteKit (Svelte 5) and Supabase. It is a static site that installs on phones and works offline.
 
 ## Run it
 
-You need [Node.js](https://nodejs.org) 20 or newer.
+You need [Node.js](https://nodejs.org) 22.17 or newer.
 
 ```bash
 cd app
-npm install      # first time only
-npm run dev      # opens at http://localhost:5173 and reloads as you edit
+npm install
+cp .env.example .env   # then fill it in with your staging project
+npm run dev
 ```
 
-To open it on your phone while developing (same Wi-Fi): `npm run dev -- --host`,
-then visit the "Network" address it prints.
-
-## Other commands
+## Commands
 
 | Command | What it does |
 |---|---|
-| `npm test` | Checks the scoring and queue rules |
-| `npm run check` | Checks every component for mistakes and accessibility problems |
-| `npm run build` | Builds the finished site into `build/` |
-| `npm run preview` | Serves the built site locally, to try it before putting it online |
-| `npm run icons` | Redraws the app icons in `static/` |
+| `npm run dev` | Runs the app at http://localhost:5173 |
+| `npm test` | Checks the game and history rules |
+| `npm run check` | Checks the components for mistakes |
+| `npm run lint` | Checks code quality |
+| `npm run build` | Builds the site into `build/` |
+| `npm run test:e2e` | Runs the app in Chrome and plays through real flows (build first) |
+| `npm run verify` | All of the above, in order. Run it before pushing |
+| `npm run icons` | Redraws the app icons from the logo |
 
-## Put it online (free)
-
-`npm run build` makes plain files in `build/`. Upload that folder to any static host:
-Netlify (drag and drop the folder), Cloudflare Pages, Vercel or GitHub Pages.
-On phones, open the site and choose **Add to Home Screen** to install it.
+GitHub runs the same checks on every push (`.github/workflows/ci.yml`).
 
 ## Where things are
 
 | Path | What it does |
 |---|---|
-| `src/lib/logic/` | The rules: `scoring.js` (both sports) and `queue.js` (line, teams, rankings). No screen code, fully tested |
-| `src/lib/state.svelte.js` | The shared data for every page, saved in the browser. **The one file to change to go online** (Supabase/Firebase) |
-| `src/lib/storage.js` | Reading and writing the browser's storage |
-| `src/lib/openplay/` | Open play screen pieces: court cards, next game, waiting line, check-in, dialogs, standings. `actions.js` holds what every button does |
-| `src/lib/scoreboard/` | The new-match form |
-| `src/lib/components/` | Shared pieces: toasts, dialog |
-| `src/routes/` | The pages: `/` home, `/openplay`, `/scoreboard` (`?court=1` for a court) |
-| `src/app.css` | Colours, type, layout and animations |
+| `src/lib/logic/` | The rules, with no screen code: scoring, queue and rankings, keys, lobby, history, share cards |
+| `src/lib/*.svelte.js` | Shared state: session store, account, lobby sync, upload queue, past players |
+| `src/lib/openplay/` | Open play screens and `actions.js`, which holds what each button does |
+| `src/lib/components/` | Shared pieces |
+| `src/routes/` | The pages |
 | `src/service-worker.js` | Offline support |
-| `static/` | Icons and the install manifest |
-| `tests/run.mjs` | Rule checks |
+| `supabase/` | Database files, run in order. See [`supabase/SETUP.md`](supabase/SETUP.md) |
+| `static/_headers` | Security headers for Cloudflare Pages |
+| `tests/` | `run.mjs` (rules) and `e2e/` (browser) |
 
-## Going online later
+## Hosting
 
-Players joining from their own phones and a live board on several devices need a
-shared database. Keep the methods in `src/lib/state.svelte.js` (`setSession`,
-`setMatch`, ...) and make them save to Supabase or Firebase, and subscribe to their
-live updates to set `store.session`. The rules and screens do not need to change.
+Cloudflare Pages builds every push to `main`: root directory `app`, build command `npm run build`,
+output `build`. Set `NODE_VERSION`, `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_PUBLISHABLE_KEY` there.

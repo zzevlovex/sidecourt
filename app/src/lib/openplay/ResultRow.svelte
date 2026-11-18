@@ -1,8 +1,9 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
-  import { resultWinner } from '$lib/logic/queue.js';
+  import Icon from '#lib/components/Icon.svelte';
+  import { resultWinner } from '#lib/logic/queue.js';
 
-  let { result: r } = $props();
+  // onedit: shown on the live board, where a game can still be corrected.
+  let { result: r, onedit = null } = $props();
 
   const w = $derived(r.winner ?? resultWinner(r.score));
   const win = $derived(w ? (w === 'a' ? 0 : 1) : null);
@@ -24,4 +25,5 @@
     <span class="res-score none">{#if win !== null}Winner picked<br />no score{:else}No score{/if}</span>
   {/if}
   {#if r.unfinished}<span class="res-note">Unfinished, counted at this score</span>{/if}
+  {#if onedit && r.id}<button class="not-me res-edit" type="button" onclick={() => onedit(r.id)}>Correct</button>{/if}
 </li>

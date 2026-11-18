@@ -1,11 +1,11 @@
 <script>
   // Share cards for the final standings: pick a card, a shape and a background,
   // see it, then download the PNG or send it to the phone's share sheet.
-  import Modal from '$lib/components/Modal.svelte';
-  import Icon from '$lib/components/Icon.svelte';
-  import { toast } from '$lib/toasts.svelte.js';
-  import { shareCards } from '$lib/logic/shareCard.js';
-  import { svgUrl, cardToPng, saveFiles, canShareFiles } from '$lib/sharePng.js';
+  import Modal from '#lib/components/Modal.svelte';
+  import Icon from '#lib/components/Icon.svelte';
+  import { toast } from '#lib/toasts.svelte.js';
+  import { shareCards } from '#lib/logic/shareCard.js';
+  import { svgUrl, cardToPng, saveFiles, canShareFiles } from '#lib/sharePng.js';
 
   let { summary, onclose } = $props();
 

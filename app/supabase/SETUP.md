@@ -1,32 +1,67 @@
-# Supabase setup for Sidecourt accounts
+# Supabase setup
 
-Do these once in the Supabase dashboard (https://supabase.com/dashboard), in your project.
+Never put the **secret key** (`sb_secret_...`) in the app, in `.env` or in Cloudflare.
+The app only needs the project URL and the publishable key.
 
-## 1. Create the tables
+## New project
 
-1. Open **SQL Editor** (left sidebar) and click **New query**.
-2. Paste everything from `app/supabase/01_accounts.sql`.
-3. Click **Run**. It should say "Success. No rows returned".
+### 1. Run the database files
 
-## 2. Sign-in settings
+In **SQL Editor > New query**, paste and run each file once, in this order:
 
-Go to **Authentication > Sign In / Providers > Email** and set:
+| File | What it adds |
+|---|---|
+| `01_accounts.sql` | Accounts and key sign-in |
+| `02_history.sql` | Check-in by code and game history |
+| `03_lobby.sql` | Open play lobbies |
+| `04_delete_account.sql` | Delete my account |
+| `05_sessions.sql` | Open play history |
+| `06_court_scores.sql` | Scorer links |
+| `07_security.sql` | Size limits, rate limits, "Not me" |
+| `08_reliability.sql` | Lower data use, session resume, error log |
 
-- **Confirm email: OFF.** Accounts sign up with a key, not an email, so there is nothing to confirm.
-- **Secure email change: OFF.** Otherwise adding a recovery email waits for a confirmation
-  sent to the hidden key address, which can never arrive.
+Every file is safe to run again. To see what a project already has, run
+`select * from schema_migrations order by file;`. It lists the files up to `08` once `08` has run.
+**Changing the database later:** add the next numbered file, run it on staging first, then on production,
+and add a line for it to `schema_migrations`.
 
-Leave **Enable Email provider** ON. Click **Save**.
+### 2. Sign-in settings
 
-## 3. Links in emails
+**Authentication > Sign In / Providers > Email**: keep **Enable Email provider** on, and turn
+**Confirm email** and **Secure email change** off. Accounts use a key, so there is no address to confirm.
 
-Go to **Authentication > URL Configuration**:
+### 3. Links in emails
 
-- **Site URL:** `http://localhost:5173` (change it to the real address when the app goes online).
-- **Redirect URLs:** add `http://localhost:5173/account`. Later also add the online address,
-  for example `https://your-site.netlify.app/account`.
+**Authentication > URL Configuration**: set **Site URL** to the site's address, and add
+`<that address>/account` to **Redirect URLs**.
 
-## Never
+## Staging: test without touching real players
 
-Never put the **secret key** (`sb_secret_...`) in the app or in `.env`. The app only needs the
-publishable key.
+1. Create a second free Supabase project called `sidecourt-staging` and do the steps above in it.
+   Use `http://localhost:5173` as its Site URL and `http://localhost:5173/account` as its redirect.
+2. Put the staging URL and publishable key in `app/.env`. Local development now uses staging.
+3. In Cloudflare Pages > Settings > Variables, give the **Preview** environment the staging values and
+   **Production** the real ones. Pushing a branch other than `main` then makes a test site that uses staging.
+
+## Backups
+
+`.github/workflows/backup.yml` makes an encrypted backup every Sunday, kept 30 days.
+To turn it on, in GitHub go to **Settings > Secrets and variables > Actions** and add:
+
+- `SUPABASE_DB_URL`: in Supabase, click **Connect** and copy the **Session pooler** connection string,
+  with your database password filled in.
+- `BACKUP_PASSPHRASE`: a long password you make up. **Save it in a password manager**: without it the
+  backups cannot be opened.
+
+Test it with **Actions > Database backup > Run workflow**. Never paste either value into chat or a file.
+
+To restore, download the backup from the run's page, then:
+
+```bash
+gpg --output backup.sql --decrypt backup.sql.gpg
+psql "<connection string of an empty project>" -f backup.sql
+```
+
+## Seeing app errors
+
+Crashes are listed in **Table Editor > client_errors**, newest at the bottom. Entries are kept for 30 days.

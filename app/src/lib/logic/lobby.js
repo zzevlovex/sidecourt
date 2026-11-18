@@ -25,6 +25,29 @@ export function fitsCourt(match, court) {
   return match.names?.a === court.teams[0].p.join(' / ') && match.names?.b === court.teams[1].p.join(' / ');
 }
 
+// The same check for a score from another phone, when a player may have been
+// swapped: the game must match, and the names on the court are the ones that count.
+export function scoreForCourt(match, court) {
+  if (!validMatch(match) || !court || court.teams.length !== 2 || match.game !== court.game) return null;
+  return { ...match, names: { a: court.teams[0].p.join(' / '), b: court.teams[1].p.join(' / ') } };
+}
+
+// A private marker for "this linked player is me". The lobby is public and must
+// not contain account ids, so it holds a one-way code made from id and lobby.
+export async function linkToken(accountId, code) {
+  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${code}:${accountId}`));
+  return [...new Uint8Array(bytes).slice(0, 10)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// { token: player name } for everyone linked to an account in this session.
+export async function linkTokens(accounts = {}, code) {
+  const pairs = await Promise.all(Object.entries(accounts).map(async ([name, id]) => [await linkToken(id, code), name]));
+  return Object.fromEntries(pairs);
+}
+
+// A poll answers with no state when nothing has changed: keep the copy we have.
+export const mergeLobby = (previous, row) => (row && row.state == null && previous ? { ...previous, open: row.open, updated_at: row.updated_at } : row);
+
 // Reads a scanned QR or typed text: a full Sidecourt link or a bare 6-letter code.
 export function codeFrom(text) {
   let value = String(text).trim();

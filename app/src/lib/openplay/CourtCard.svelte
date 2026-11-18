@@ -1,13 +1,13 @@
 <script>
   import { resolve } from '$app/paths';
-  import { store } from '$lib/state.svelte.js';
-  import { winner, callText } from '$lib/logic/scoring.js';
-  import { teamNames } from '$lib/format.js';
+  import { store } from '#lib/state.svelte.js';
+  import { winner, callText } from '#lib/logic/scoring.js';
+  import { teamNames } from '#lib/format.js';
   import Matchup from './Matchup.svelte';
-  import { drafts } from './ui.svelte.js';
-  import { sendToCourt, finishGame, shareScoring } from './actions.js';
-  import Icon from '$lib/components/Icon.svelte';
-  import { enter } from '$lib/enter.js';
+  import { drafts, ui } from './ui.svelte.js';
+  import { sendToCourt, finishGame, shareScoring, dropCourt } from './actions.js';
+  import Icon from '#lib/components/Icon.svelte';
+  import { enter } from '#lib/enter.js';
 
   // ready: a game is waiting to go on.
   let { court, ready } = $props();
@@ -25,6 +25,9 @@
     <div class="row between"><h3 class="court-name">Court {court.id}</h3><span class="status go">Free</span></div>
     <p class="muted small">{ready ? 'The next game is ready to go on.' : 'Waiting for 4 players in the line.'}</p>
     <button class="btn {ready ? 'btn-light' : 'btn-ghost'}" disabled={!ready} onclick={() => sendToCourt(court.id)}>Send next game here</button>
+    {#if store.session.courts.length > 1}
+      <button class="link-btn scorer-link" type="button" onclick={() => dropCourt(court.id)}>Remove this court</button>
+    {/if}
   </article>
 {:else}
   {@const [a, b] = court.teams}
@@ -43,7 +46,7 @@
         <span class="muted small">
           {#if done}
             {m.names[done]} won. Tap Finish game to save it.
-          {:else if m.sport === 'badminton'}
+          {:else if m.sport === 'badminton' && m.bestOf > 1}
             Games {m.games.a}–{m.games.b} · {m.names[m.serving]} serving
           {:else}
             Call {callText(m)} · {m.names[m.serving]} serving
@@ -64,7 +67,10 @@
       <a class="btn btn-ghost grow" href="{resolve('/scoreboard')}?court={court.id}">{live ? 'Open scoreboard' : 'Keep score'}</a>
       <button class="btn btn-light grow" onclick={() => finishGame(court.id)}>Finish game</button>
     </div>
-    <button class="link-btn scorer-link" type="button" onclick={() => shareScoring(court.id)}><Icon name="qr" size={16} /> Let another phone keep score</button>
+    <div class="court-tools">
+      <button class="link-btn scorer-link" type="button" onclick={() => shareScoring(court.id)}><Icon name="qr" size={16} /> Let another phone keep score</button>
+      <button class="link-btn scorer-link" type="button" onclick={() => (ui.managing = court.id)}>Change players or cancel</button>
+    </div>
     <p class="hint">No score? You can just pick who won. Finishing sends these 4 to the back of the line.</p>
   </article>
 {/if}

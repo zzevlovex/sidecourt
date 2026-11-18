@@ -1,31 +1,34 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { store } from '$lib/state.svelte.js';
-  import { toast } from '$lib/toasts.svelte.js';
-  import { plural } from '$lib/format.js';
-  import { upcoming, waitingCount, playingCount } from '$lib/logic/queue.js';
-  import { ui } from '$lib/openplay/ui.svelte.js';
-  import { announce, setHelp, pullJoins, checkInByCode } from '$lib/openplay/actions.js';
-  import LobbyDialog from '$lib/openplay/LobbyDialog.svelte';
-  import ScorerDialog from '$lib/openplay/ScorerDialog.svelte';
-  import { account } from '$lib/account.svelte.js';
-  import { POLL_MS } from '$lib/lobby.svelte.js';
-  import { codeFrom } from '$lib/logic/lobby.js';
-  import SetupForm from '$lib/openplay/SetupForm.svelte';
-  import Standings from '$lib/openplay/Standings.svelte';
-  import CourtCard from '$lib/openplay/CourtCard.svelte';
-  import NextGameCard from '$lib/openplay/NextGameCard.svelte';
-  import CheckinCard from '$lib/openplay/CheckinCard.svelte';
-  import QueueCard from '$lib/openplay/QueueCard.svelte';
-  import SettingsCard from '$lib/openplay/SettingsCard.svelte';
-  import ResultRow from '$lib/openplay/ResultRow.svelte';
-  import EndDialog from '$lib/openplay/EndDialog.svelte';
-  import FinishDialog from '$lib/openplay/FinishDialog.svelte';
-  import { enter, settleSoon } from '$lib/enter.js';
+  import { store } from '#lib/state.svelte.js';
+  import { toast } from '#lib/toasts.svelte.js';
+  import { plural } from '#lib/format.js';
+  import { upcoming, waitingCount, playingCount } from '#lib/logic/queue.js';
+  import { ui } from '#lib/openplay/ui.svelte.js';
+  import { announce, setHelp, pullJoins, checkInByCode } from '#lib/openplay/actions.js';
+  import LobbyDialog from '#lib/openplay/LobbyDialog.svelte';
+  import ScorerDialog from '#lib/openplay/ScorerDialog.svelte';
+  import { account } from '#lib/account.svelte.js';
+  import { POLL_MS } from '#lib/lobby.svelte.js';
+  import { poll } from '#lib/poll.js';
+  import CourtDialog from '#lib/openplay/CourtDialog.svelte';
+  import ResultDialog from '#lib/openplay/ResultDialog.svelte';
+  import { codeFrom } from '#lib/logic/lobby.js';
+  import SetupForm from '#lib/openplay/SetupForm.svelte';
+  import Standings from '#lib/openplay/Standings.svelte';
+  import CourtCard from '#lib/openplay/CourtCard.svelte';
+  import NextGameCard from '#lib/openplay/NextGameCard.svelte';
+  import CheckinCard from '#lib/openplay/CheckinCard.svelte';
+  import QueueCard from '#lib/openplay/QueueCard.svelte';
+  import SettingsCard from '#lib/openplay/SettingsCard.svelte';
+  import ResultRow from '#lib/openplay/ResultRow.svelte';
+  import EndDialog from '#lib/openplay/EndDialog.svelte';
+  import FinishDialog from '#lib/openplay/FinishDialog.svelte';
+  import { enter, settleSoon } from '#lib/enter.js';
 
   const session = $derived(store.session);
   const viewingStandings = $derived(page.url.searchParams.get('view') === 'standings');
@@ -40,6 +43,7 @@
   settleSoon();
 
   let lobbyOpen = $state(false);
+  let resultsShown = $state(8);
   // A player QR scanned with the phone camera: checked in once sign-in has loaded.
   let scannedCode = $state(null);
   $effect(() => {
@@ -51,7 +55,7 @@
 
   onMount(() => {
     // Players who tapped "Join the line" in the lobby are added every few seconds.
-    const joins = setInterval(() => pullJoins().catch(() => {}), POLL_MS);
+    const stopJoins = poll(pullJoins, POLL_MS);
     // Coming back from the scoreboard: confirm what happened there.
     const params = page.url.searchParams;
     const scored = Number(params.get('scored'));
@@ -69,7 +73,7 @@
     // A player's QR scanned with the phone camera opens /openplay?code=XXXXXX.
     scannedCode = codeFrom(params.get('code') ?? '');
     if (scored || finished || scannedCode) goto(resolve('/openplay'), { replaceState: true, noScroll: true, keepFocus: true });
-    return () => clearInterval(joins);
+    return stopJoins;
   });
 </script>
 
@@ -156,8 +160,11 @@
         <details class="card fold area-results" bind:open={ui.resultsOpen}>
           <summary><span class="section-label">Recent results</span><span class="muted small">{plural(session.results.length, 'game')}</span></summary>
           <ul class="results fold-body">
-            {#each session.results.slice(0, 8) as result, i (i)}<ResultRow {result} />{/each}
+            {#each session.results.slice(0, resultsShown) as result, i (result.id ?? i)}<ResultRow {result} onedit={(id) => (ui.editingResult = id)} />{/each}
           </ul>
+          {#if session.results.length > resultsShown}
+            <button class="btn btn-small btn-ghost see-more" onclick={() => (resultsShown += 20)}>See more ({session.results.length - resultsShown} left)</button>
+          {/if}
         </details>
       {/if}
     </div>
@@ -172,6 +179,8 @@
   {#if ui.ending}<EndDialog />{/if}
   {#if lobbyOpen && session.lobby}<LobbyDialog code={session.lobby} onclose={() => (lobbyOpen = false)} />{/if}
   {#if ui.finishing !== null}<FinishDialog />{/if}
+  {#if ui.managing !== null}<CourtDialog />{/if}
+  {#if ui.editingResult !== null}<ResultDialog />{/if}
   {#if ui.scoring !== null && session.lobby && session.scoreKeys?.[ui.scoring]}
     <ScorerDialog code={session.lobby} court={ui.scoring} key={session.scoreKeys[ui.scoring]} onclose={() => (ui.scoring = null)} />
   {/if}

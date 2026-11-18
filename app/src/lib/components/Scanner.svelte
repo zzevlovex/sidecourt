@@ -3,7 +3,7 @@
   // where it exists (Chrome on Android). Elsewhere (iPhone, desktop) it loads the
   // small jsQR decoder, only when scanning starts, and reads camera frames itself.
   import Modal from './Modal.svelte';
-  import { codeFrom } from '$lib/logic/lobby.js';
+  import { codeFrom } from '#lib/logic/lobby.js';
 
   let { onscan, onclose } = $props();
   let video = $state();
@@ -78,7 +78,6 @@
     {#if problem}
       <p class="form-error">{problem}</p>
     {:else}
-      <!-- svelte-ignore a11y_media_has_caption -->
       <video bind:this={video} class="scan-video" playsinline muted></video>
       <p class="hint">Point the camera at the QR code on the player's Account page.</p>
     {/if}

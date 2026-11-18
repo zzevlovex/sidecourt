@@ -1,11 +1,12 @@
 <script>
-  import Icon from '$lib/components/Icon.svelte';
+  import Icon from '#lib/components/Icon.svelte';
   import { resolve } from '$app/paths';
-  import { account } from '$lib/account.svelte.js';
-  import { toast } from '$lib/toasts.svelte.js';
-  import MyGames from '$lib/components/MyGames.svelte';
-  import MySessions from '$lib/components/MySessions.svelte';
-  import QrCode from '$lib/components/QrCode.svelte';
+  import { account } from '#lib/account.svelte.js';
+  import { toast } from '#lib/toasts.svelte.js';
+  import MyGames from '#lib/components/MyGames.svelte';
+  import MySessions from '#lib/components/MySessions.svelte';
+  import QrCode from '#lib/components/QrCode.svelte';
+  import UploadStatus from '#lib/components/UploadStatus.svelte';
 
   let sport = $state('pickleball'); // history tab
   let name = $state('');
@@ -99,6 +100,8 @@
         </div>
       </div>
     </section>
+
+    <UploadStatus />
 
     <!-- One sport at a time: the tab filters both lists below -->
     <div class="segmented" role="group" aria-label="Sport shown in your history">

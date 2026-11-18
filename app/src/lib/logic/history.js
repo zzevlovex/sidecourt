@@ -47,7 +47,8 @@ export function sessionRow(summary, accounts = {}, id) {
     ended_at: summary.endedAt,
     name: cleanName(summary.name),
     sport: summary.sport,
-    summary,
+    // players: which name is which linked account, so "me" is never guessed from a name.
+    summary: { ...summary, players: accounts },
     player_ids: [...new Set(Object.values(accounts))],
   };
 }

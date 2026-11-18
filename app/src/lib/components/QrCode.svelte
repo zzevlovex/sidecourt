@@ -13,4 +13,5 @@
 </script>
 
 <!-- Safe: the SVG is generated from our own text, never from raw user HTML. -->
+<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 <div class="qr">{@html svg}</div>

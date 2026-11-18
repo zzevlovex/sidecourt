@@ -3,36 +3,44 @@
 // bad connection at the gym never loses it. Ids make retries safe (no doubles).
 import { supabase } from './supabase.js';
 import { account } from './account.svelte.js';
-import { load, save } from './storage.js';
+import { load, save, KEYS } from './storage.js';
 import { gameRows, sessionRow, validSummary } from './logic/history.js';
 import { newId } from './logic/queue.js';
 
 const OUTBOX = 'sidecourt.outbox';
 const TABLES = ['games', 'sessions'];
 
-// Outbox items are { table, row }. Older versions stored bare game rows.
+// Outbox items are { table, row, by }: by is the account allowed to upload them,
+// so results never end up under whoever signs in next on a shared device.
+// Older versions stored bare game rows, or items without by.
 const readOutbox = () => load(OUTBOX, []).map((item) => (item.table ? item : { table: 'games', row: item }));
+const isMine = (item) => !item.by || item.by === account.user?.id;
 
-export const history = $state({ pending: readOutbox().length });
+export const history = $state({ pending: 0, failed: load(KEYS.uploadFailed, 0), syncing: false });
+
+function setOutbox(items) {
+  save(OUTBOX, items);
+  history.pending = items.length;
+}
+history.pending = readOutbox().length;
 
 function enqueue(items) {
   if (!items.length) return;
-  const outbox = [...readOutbox(), ...items];
-  save(OUTBOX, outbox);
-  history.pending = outbox.length;
+  setOutbox([...readOutbox(), ...items]);
   flush();
 }
 
-// Called when open play ends. The session itself is saved whenever the host is
-// signed in; games are saved for players who were checked in with an account.
+// Called when open play ends. The session is saved for the host; games are saved
+// for players who were checked in with an account. hostId: who checked them in.
 // Returns the saved session's id (null when nothing was saved).
-export function queueSession(summary, accounts = {}) {
-  // Nothing to save online when nobody involved has an account.
-  if (!supabase || (!account.user && !Object.keys(accounts).length)) return null;
+export function queueSession(summary, accounts = {}, hostId = null) {
+  const linked = Object.keys(accounts).length > 0;
+  const by = (linked && hostId) || account.user?.id;
+  if (!supabase || !by) return null; // nobody with an account was involved
   const id = newId();
   enqueue([
-    { table: 'sessions', row: sessionRow(summary, accounts, id) },
-    ...gameRows(summary, accounts).map((row) => ({ table: 'games', row })),
+    { table: 'sessions', by, row: { ...sessionRow(summary, accounts, id), manager_id: by } },
+    ...gameRows(summary, accounts).map((row) => ({ table: 'games', by, row: { ...row, recorded_by: by } })),
   ]);
   return id;
 }
@@ -41,31 +49,54 @@ export function queueSession(summary, accounts = {}) {
 // of everyone's history (whether it was already uploaded or still waiting).
 export async function discardSession(id) {
   if (!id) return;
-  const left = readOutbox().filter((item) => !(item.table === 'sessions' && item.row.id === id));
-  save(OUTBOX, left);
-  history.pending = left.length;
+  setOutbox(readOutbox().filter((item) => !(item.table === 'sessions' && item.row.id === id)));
   if (supabase && account.user) await supabase.from('sessions').delete().eq('id', id);
+}
+
+export function dismissFailed() {
+  history.failed = 0;
+  save(KEYS.uploadFailed, 0);
+}
+
+// The database refused this row, so sending it again would never work.
+// (Anything else, such as no connection, is worth another try.)
+const refused = (error) => /^(22|23|42)/.test(error?.code ?? '');
+
+const upload = (table, rows) => supabase.from(table).upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
+
+function settle(sentIds, table, gaveUp = 0) {
+  setOutbox(readOutbox().filter((item) => !(item.table === table && sentIds.has(item.row.id))));
+  if (gaveUp) {
+    history.failed += gaveUp;
+    save(KEYS.uploadFailed, history.failed);
+  }
 }
 
 let flushing = false;
 export async function flush() {
   if (flushing || !supabase || !account.user || !readOutbox().length) return;
   flushing = true;
+  history.syncing = true;
   try {
     // Each table uploads on its own: one failing never blocks the other.
     for (const table of TABLES) {
-      const rows = readOutbox().filter((item) => item.table === table).map((item) => item.row);
+      const rows = readOutbox().filter((item) => item.table === table && isMine(item)).map((item) => item.row);
       if (!rows.length) continue;
-      const { error } = await supabase.from(table).upsert(rows, { onConflict: 'id', ignoreDuplicates: true });
-      if (error) continue;
-      // Keep anything added while this upload was running.
-      const sent = new Set(rows.map((row) => row.id));
-      const left = readOutbox().filter((item) => !(item.table === table && sent.has(item.row.id)));
-      save(OUTBOX, left);
-      history.pending = left.length;
+      const { error } = await upload(table, rows);
+      if (!error) {
+        settle(new Set(rows.map((row) => row.id)), table);
+      } else if (refused(error)) {
+        // One bad row must not hold back the rest: send them one at a time.
+        for (const row of rows) {
+          const { error: rowError } = await upload(table, [row]);
+          if (!rowError) settle(new Set([row.id]), table);
+          else if (refused(rowError)) settle(new Set([row.id]), table, 1);
+        }
+      }
     }
   } finally {
     flushing = false;
+    history.syncing = false;
   }
 }
 
@@ -104,6 +135,7 @@ export async function removeFromHistory(table, id) {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('online', flush);
+  setInterval(flush, 60000); // keeps trying while anything is waiting
   // Try again whenever someone signs in or the app starts signed in.
   $effect.root(() => {
     $effect(() => {

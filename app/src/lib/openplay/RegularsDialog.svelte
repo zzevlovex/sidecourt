@@ -1,13 +1,13 @@
 <script>
   // Tick who is here tonight from everyone who has played on this device.
-  import Icon from '$lib/components/Icon.svelte';
-  import Modal from '$lib/components/Modal.svelte';
-  import { store } from '$lib/state.svelte.js';
-  import { account } from '$lib/account.svelte.js';
-  import { hasPlayer } from '$lib/logic/queue.js';
-  import { rankRoster, linkFor } from '$lib/logic/roster.js';
-  import { roster, forgetFromRoster } from '$lib/roster.svelte.js';
-  import { plural } from '$lib/format.js';
+  import Icon from '#lib/components/Icon.svelte';
+  import Modal from '#lib/components/Modal.svelte';
+  import { store } from '#lib/state.svelte.js';
+  import { account } from '#lib/account.svelte.js';
+  import { hasPlayer } from '#lib/logic/queue.js';
+  import { rankRoster, linkFor } from '#lib/logic/roster.js';
+  import { roster, forgetFromRoster } from '#lib/roster.svelte.js';
+  import { plural } from '#lib/format.js';
   import { addRegulars } from './actions.js';
 
   let { onclose } = $props();

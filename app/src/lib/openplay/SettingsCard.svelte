@@ -1,10 +1,14 @@
 <script>
-  import { store } from '$lib/state.svelte.js';
-  import { plural } from '$lib/format.js';
+  import { store } from '#lib/state.svelte.js';
+  import { plural } from '#lib/format.js';
   import { ui } from './ui.svelte.js';
-  import { allowPicks, addCourt, saveLocation } from './actions.js';
+  import { allowPicks, addCourt, saveLocation, setFormat } from './actions.js';
+  import { defaultFormat } from '#lib/logic/scoring.js';
+  import FormatFields from './FormatFields.svelte';
 
   const session = $derived(store.session);
+  // Sessions from before formats existed played badminton as best of 3.
+  const format = $derived({ ...defaultFormat(session.sport), ...(session.sport === 'badminton' && !session.format?.bestOf ? { bestOf: 3 } : {}), ...session.format });
 </script>
 
 <details class="card fold area-settings" bind:open={ui.settingsOpen}>
@@ -24,6 +28,11 @@
           ? 'Partners checked in together stay together. Everyone else gets a random teammate.'
           : 'Everyone gets a random teammate, including people who checked in as partners.'}
       </p>
+    </div>
+    <div class="stack tight">
+      <span class="label">Game format</span>
+      <FormatFields sport={session.sport} value={format} onchange={setFormat} idPrefix="settings" />
+      <p class="hint">Changes apply from the next game.</p>
     </div>
     <label>Location (optional)
       <input value={session.location ?? ''} placeholder="e.g. Riverside Sports Center" maxlength="40" autocomplete="off" onchange={(e) => saveLocation(e.currentTarget.value)} />

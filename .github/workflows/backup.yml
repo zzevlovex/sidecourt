@@ -1,0 +1,40 @@
+# Weekly encrypted database backup, kept for 30 days as a download on the run's page.
+# Does nothing until the two secrets are added (see app/supabase/SETUP.md, "Backups").
+name: Database backup
+
+on:
+  schedule:
+    - cron: '0 18 * * 0' # every Sunday
+  workflow_dispatch: # also a "Run workflow" button on GitHub
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Check setup
+        id: setup
+        run: |
+          if [ -n "$SUPABASE_DB_URL" ] && [ -n "$BACKUP_PASSPHRASE" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Backup secrets are not set yet, so nothing was backed up."
+          fi
+      - name: Dump and encrypt
+        if: steps.setup.outputs.ready == 'true'
+        run: |
+          docker run --rm --network host -e DB="$SUPABASE_DB_URL" postgres:17 \
+            sh -c 'pg_dump "$DB" --schema=public --schema=auth --no-owner --no-privileges' > backup.sql
+          test -s backup.sql
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+            --symmetric --cipher-algo AES256 -o backup.sql.gpg backup.sql
+          rm backup.sql
+      - uses: actions/upload-artifact@v4
+        if: steps.setup.outputs.ready == 'true'
+        with:
+          name: sidecourt-backup-${{ github.run_number }}
+          path: backup.sql.gpg
+          retention-days: 30
+          if-no-files-found: error

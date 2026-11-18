@@ -1,10 +1,13 @@
 <script>
   // New single match (not part of open play).
+  import { defaultFormat } from '#lib/logic/scoring.js';
+  import FormatFields from '#lib/openplay/FormatFields.svelte';
+
   let { onstart } = $props();
 
   let sport = $state('pickleball');
   let format = $state('doubles');
-  let target = $state(11);
+  let formats = $state({ pickleball: defaultFormat('pickleball'), badminton: { target: 21, bestOf: 3 } });
   let a = $state('');
   let b = $state('');
 
@@ -13,7 +16,7 @@
     onstart({
       sport,
       doubles: format === 'doubles',
-      target: sport === 'pickleball' ? Number(target) : undefined,
+      ...$state.snapshot(formats[sport]),
       names: { a: a.trim(), b: b.trim() },
     });
   }
@@ -39,19 +42,8 @@
     </fieldset>
     <label class="team-input a">Side A <input bind:value={a} placeholder="e.g. Reyes / Santos" autocomplete="off" required /></label>
     <label class="team-input b">Side B <input bind:value={b} placeholder="e.g. Cruz / Lim" autocomplete="off" required /></label>
-    {#if sport === 'pickleball'}
-      <fieldset class="choice">
-        <legend>Play to</legend>
-        <div class="segmented three">
-          {#each [11, 15, 21] as n (n)}
-            <label class="seg"><input type="radio" value={n} bind:group={target} /><span>{n}</span></label>
-          {/each}
-        </div>
-        <span class="hint">Win by 2. Side A serves first.</span>
-      </fieldset>
-    {:else}
-      <p class="hint">Rally scoring to 21, win by 2, capped at 30, best of three games. Side A serves first.</p>
-    {/if}
+    <FormatFields {sport} value={formats[sport]} onchange={(v) => (formats[sport] = v)} idPrefix="match" />
+    <p class="hint">Win by 2. Side A serves first.</p>
     <button class="btn btn-primary btn-big" type="submit">Start match</button>
   </form>
 </section>

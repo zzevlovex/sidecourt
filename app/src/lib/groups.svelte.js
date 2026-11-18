@@ -1,5 +1,5 @@
 // Saved player lists ("Friday regulars") for one-tap check-in. Kept on this device.
-import { load, save, KEYS } from '$lib/storage.js';
+import { load, save, KEYS } from '#lib/storage.js';
 
 export const groups = $state({ list: load(KEYS.groups, []) });
 

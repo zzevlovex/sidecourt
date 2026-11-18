@@ -2,24 +2,25 @@
 // saves it and updates the screen; most show a toast with Undo.
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
-import { store } from '$lib/state.svelte.js';
-import { toast } from '$lib/toasts.svelte.js';
-import { save, KEYS } from '$lib/storage.js';
-import { plural, speak } from '$lib/format.js';
+import { store } from '#lib/state.svelte.js';
+import { toast } from '#lib/toasts.svelte.js';
+import { save, KEYS } from '#lib/storage.js';
+import { plural, speak } from '#lib/format.js';
 import {
   newSession, addPlayers, hasPlayer, moveUp as moveUpRule, removeEntry, setAllowPicks, addCourt as addCourtRule,
   fillCourt, endGame, reshuffle, finishSession, pairUp, splitPair, resultWinner, setAway, allPlayers, setLocation,
-} from '$lib/logic/queue.js';
+  cancelGame, replacePlayer, removeCourt, editResult, deleteResult,
+} from '#lib/logic/queue.js';
 import { ui, drafts } from './ui.svelte.js';
-import { supabase } from '$lib/supabase.js';
-import { account } from '$lib/account.svelte.js';
-import { queueSession, discardSession } from '$lib/history.svelte.js';
-import { closeLobby, pendingJoins, clearJoin } from '$lib/lobby.svelte.js';
-import { publicState } from '$lib/logic/lobby.js';
-import { groups, saveGroup } from '$lib/groups.svelte.js';
-import { newPlayerCode } from '$lib/logic/keys.js';
-import { roster, rememberSession, restoreRoster } from '$lib/roster.svelte.js';
-import { linkFor } from '$lib/logic/roster.js';
+import { supabase } from '#lib/supabase.js';
+import { account } from '#lib/account.svelte.js';
+import { queueSession, discardSession } from '#lib/history.svelte.js';
+import { closeLobby, pendingJoins, clearJoin } from '#lib/lobby.svelte.js';
+import { publicState } from '#lib/logic/lobby.js';
+import { groups, saveGroup } from '#lib/groups.svelte.js';
+import { newPlayerCode } from '#lib/logic/keys.js';
+import { roster, rememberSession, restoreRoster } from '#lib/roster.svelte.js';
+import { linkFor } from '#lib/logic/roster.js';
 
 const undoTo = (before) => () => store.setSession(before);
 
@@ -30,10 +31,10 @@ export function announce() {
 
 /* ---------- Setup and check-in ---------- */
 
-export function createSession({ name, sport, courts, location = '' }) {
+export function createSession({ name, sport, courts, location = '', format }) {
   store.setSummary(null);
   ui.focusCheckin = true;
-  store.setSession(newSession({ name: name.trim(), sport, courts: Number(courts), location }));
+  store.setSession(newSession({ name: name.trim(), sport, courts: Number(courts), location, format }));
   toast('Session open. Start checking players in.', { type: 'success' });
 }
 
@@ -50,7 +51,7 @@ function addKnown(session, names, options) {
       used.add(id);
     }
   });
-  return Object.keys(accounts).length ? { ...next, accounts } : next;
+  return Object.keys(accounts).length ? { ...next, accounts, hostId: session.hostId ?? account.user?.id } : next;
 }
 
 // Add past players from a suggestion or the Regulars list.
@@ -144,7 +145,7 @@ function addLinkedPlayer(displayName, playerId, addedBy = null) {
   // Two different people can share a name: add part of their id to tell them apart.
   const name = hasPlayer(session, displayName) ? `${displayName} (${playerId.slice(0, 4).toUpperCase()})` : displayName;
   const next = addPlayers(session, [name], { addedBy });
-  store.setSession({ ...next, accounts: { ...accounts, [name]: playerId } });
+  store.setSession({ ...next, accounts: { ...accounts, [name]: playerId }, hostId: session.hostId ?? account.user?.id });
   return name;
 }
 
@@ -190,7 +191,11 @@ export function scoreInProgress(court) {
   const live = store.liveScore(court);
   const d = { ...(live ? live.final : {}), ...drafts.scores[court.id] };
   const filled = (v) => v !== undefined && v !== null && v !== '';
-  return filled(d.a) && filled(d.b) ? { a: Number(d.a), b: Number(d.b) } : null;
+  if (!filled(d.a) || !filled(d.b)) return null;
+  const score = { a: Number(d.a), b: Number(d.b) };
+  // Real points from the scoreboard stay with its score, unless it was typed over.
+  if (live?.final.points && !drafts.scores[court.id]) score.points = live.final.points;
+  return score;
 }
 
 // A score with a clear winner finishes right away; otherwise ask who won.
@@ -226,6 +231,65 @@ function finishCourt(courtId, score, winnerSide) {
     ? `Court ${courtId} finished (${what}). Next game is on.`
     : `Court ${courtId} finished (${what}). Not enough players for the next game yet.`, { type: called ? 'success' : 'info', onUndo: undoTo(before) });
   if (called) announce();
+}
+
+/* ---------- Changing a game or a result ---------- */
+
+const courtNames = (court) => ({ a: court.teams[0].p.join(' / '), b: court.teams[1].p.join(' / ') });
+
+export function cancelCourtGame(courtId) {
+  const before = store.session;
+  const match = store.match(courtId);
+  delete drafts.scores[courtId];
+  store.setMatch(courtId, null);
+  store.setSession(cancelGame(before, courtId));
+  toast(`Court ${courtId}: game cancelled. The players are back at the top of the line.`, {
+    onUndo: () => {
+      store.setSession(before);
+      store.setMatch(courtId, match);
+    },
+  });
+}
+
+export function swapPlayer(courtId, outName, entryId) {
+  const before = store.session;
+  const incoming = before.queue.find((e) => e.id === entryId)?.p[0];
+  const oldMatch = store.match(courtId);
+  const live = store.courtMatch(before.courts.find((c) => c.id === courtId));
+  store.setSession(replacePlayer(before, courtId, outName, entryId));
+  // The score carries on under the new names.
+  if (live) store.setMatch(courtId, { ...live, names: courtNames(store.session.courts.find((c) => c.id === courtId)) });
+  toast(`${incoming} replaces ${outName} on Court ${courtId}.`, {
+    type: 'success',
+    onUndo: () => {
+      store.setSession(before);
+      store.setMatch(courtId, oldMatch);
+    },
+  });
+}
+
+export function dropCourt(courtId) {
+  const before = store.session;
+  store.setSession(removeCourt(before, courtId));
+  store.setMatch(courtId, null);
+  toast(`Court ${courtId} removed.`, { onUndo: undoTo(before) });
+}
+
+export function saveResult(resultId, score, winner) {
+  const before = store.session;
+  store.setSession(editResult(before, resultId, score, winner));
+  toast('Result corrected.', { type: 'success', onUndo: undoTo(before) });
+}
+
+export function removeResult(resultId) {
+  const before = store.session;
+  store.setSession(deleteResult(before, resultId));
+  toast('Game deleted.', { onUndo: undoTo(before) });
+}
+
+export function setFormat(format) {
+  store.setSession({ ...store.session, format });
+  toast('New format applies from the next game.', { type: 'success', key: 'format' });
 }
 
 export function shuffle() {
@@ -316,7 +380,7 @@ export function confirmEnd() {
   const summary = finishSession(before, liveScoresToCount());
   store.setSummary(summary);
   const rosterBefore = rememberSession(summary, before.accounts, account.user?.id);
-  const savedId = queueSession(summary, before.accounts); // saved to the host's and the checked-in players' history
+  const savedId = queueSession(summary, before.accounts, before.hostId); // saved to the host's and the checked-in players' history
   closeLobby(before.lobby, publicState({ ...before, results: summary.results })).catch(() => {});
   ui.ending = false;
   ui.pairing = null;
