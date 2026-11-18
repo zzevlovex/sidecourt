@@ -52,11 +52,13 @@
     <!-- 2. Manager actions -->
     <div class="secondary-actions">
       <a class={['card action-card', store.session && 'active']} href={resolve('/openplay')}>
+        <span class="title-icon"><Icon name="users" size={18} /></span>
         <span class="label">{store.session ? 'Session running' : 'Managers'}</span>
         <strong>{store.session ? `Continue ${store.session.name}` : 'Host open play'}</strong>
         <span class="arrow"><Icon name="arrow-right" /></span>
       </a>
       <a class="card action-card" href={resolve('/scoreboard')}>
+        <span class="title-icon warm"><Icon name="score" size={18} /></span>
         <span class="label">One game</span>
         <strong>Score a match</strong>
         <span class="arrow"><Icon name="arrow-right" /></span>

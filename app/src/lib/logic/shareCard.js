@@ -1,9 +1,10 @@
-// Shareable standings cards (like Strava activity overlays):
-//   1. Overall: session stats, the rankings and the matches
-//   2-4. One per top-3 player: their stats and their own matches
-// Text sits in two thin bands near the top and bottom, small and quiet, so
-// the middle stays empty for a photo. Only highlights are shown (top 5,
-// closest games, a player's last games), not every match.
+// Shareable standings cards, sized like Strava's story stickers: a small label
+// with a very large number, few things per card, so it reads on a phone.
+//   1. Overall: the session and its top 3
+//   2-4. One per top-3 player: their three headline numbers and recent form
+// Hierarchy on every card: (1) title or name, (2) the big numbers or the top 3,
+// (3) small labels and details.
+// Text sits in a top band and a bottom band; the middle stays empty for a photo.
 // Portrait is an Instagram story (1080x1920, text inside its safe area);
 // landscape is full HD (1920x1080, the 16:9 shape of a YouTube thumbnail);
 // on the dark Sidecourt background, or see-through: text only on a fully
@@ -16,18 +17,22 @@ const FONT = "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 const C = { bg: '#0a0d18', text: '#f1f3fa', soft: '#cfd5e6', muted: '#a2abc6', orange: '#ff8a4c', blue: '#7db4ff', green: '#6ee7a8', red: '#ff9aa8' };
 const MEDAL = { 1: '#f2c14e', 2: '#c3cad9', 3: '#d98a4f' };
 const PLACE = { 1: '1ST PLACE', 2: '2ND PLACE', 3: '3RD PLACE' };
-const ROW = 36; // height of one ranking or match row
 
-// Sizes match where the cards get posted:
-//   portrait  = Instagram story (1080x1920). Instagram draws its own controls
-//               over the top ~250px and bottom ~340px, so all text stays between.
-//   landscape = full HD (1920x1080), the 16:9 shape of a YouTube thumbnail.
-// top: how far down the top band starts. foot: where the footer line sits.
-// bandTop: where the bottom band starts. rows: rows per column in that band.
-export const STORY_SAFE = { top: 250, bottom: 340 };
+// One type scale for every card (pixels on the 1080-wide story).
+const T = { brand: 28, eyebrow: 26, title: 74, sub: 30, label: 25, value: 92, row: 42, detail: 28, foot: 22 };
+
+// Instagram draws its own controls over the top ~250px and bottom ~340px of a
+// story. Half of each is kept clear: text sits closer to the edges, leaving more
+// room for the photo, at the cost that Instagram's bars may touch the outer lines.
+export const STORY_SAFE = { top: 125, bottom: 170 };
+// W, H: the canvas the card is laid out on. outW, outH: the image that is saved.
+// scale: how the layout is drawn onto the image. Landscape is laid out on a larger
+// canvas and drawn at 80%, so its text is smaller than the story's on a 1920x1080 image.
+// top: where the brand line starts. bottom: the lowest baseline text may use.
+// rightCol: where the landscape's right-hand list starts.
 export const LAYOUTS = {
-  portrait: { W: 1080, H: 1920, pad: 72, top: 220, foot: 1568, bandTop: 1340, rows: 5, statsBelow: true, rankCols: [72], rankW: 380, matchCols: [560], matchW: 448, playerCols: [72], playerW: 936 },
-  landscape: { W: 1920, H: 1080, pad: 72, top: 0, foot: 1040, bandTop: 858, rows: 3, statsBelow: false, rankCols: [72, 500], rankW: 360, matchCols: [1400], matchW: 448, playerCols: [72], playerW: 848 },
+  portrait: { W: 1080, H: 1920, outW: 1080, outH: 1920, scale: 1, pad: 72, top: 137, bottom: 1662, story: true },
+  landscape: { W: 2400, H: 1350, outW: 1920, outH: 1080, scale: 0.8, pad: 90, top: 70, bottom: 1280, rightCol: 1480, story: false },
 };
 
 // Names are typed by people: escape them so they cannot break the image.
@@ -36,82 +41,90 @@ const esc = (t) => String(t).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '
 const fit = (t, max) => (String(t).length > max ? `${String(t).slice(0, max - 1).trimEnd()}…` : String(t));
 const signed = (n) => (n > 0 ? `+${n}` : String(n));
 const pct = (p) => (p.wins + p.losses ? `${Math.round(p.winRate * 100)}%` : '–');
-const diffColor = (n) => (n > 0 ? C.green : n < 0 ? C.red : C.soft);
+const diffColor = (n) => (n > 0 ? C.green : n < 0 ? C.red : C.text);
 const cap = (word) => `${word[0].toUpperCase()}${word.slice(1)}`;
 const dateText = (iso) => new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 function text(x, y, value, { size, weight = 600, fill = C.text, anchor = 'start', spacing = 0 }) {
   return `<text x="${x}" y="${y}" font-size="${size}" font-weight="${weight}" fill="${fill}" text-anchor="${anchor}"${spacing ? ` letter-spacing="${spacing}"` : ''}>${esc(value)}</text>`;
 }
 
-const heading = (x, y, value) => text(x, y, value, { size: 15, weight: 700, fill: C.muted, spacing: 4 });
+const label = (x, y, value, fill = C.muted) => text(x, y, value, { size: T.label, weight: 700, fill, spacing: 4 });
 
-// A small number with a tiny label under it.
-const pair = (x, y, value, label, fill = C.soft) => text(x, y, value, { size: 30, weight: 700, fill }) + text(x, y + 22, label, { size: 14, weight: 600, fill: C.muted, spacing: 3 });
+// Strava-style stat: a small label, then a very large number under it.
+const stat = (x, y, name, value, fill = C.text) => label(x, y, name) + text(x, y + T.value + 2, value, { size: T.value, weight: 800, fill });
 
-// A row of pairs: under the title in portrait, at the top right in landscape.
-function statsRow(L, pairs) {
-  const step = 150;
-  const x0 = L.statsBelow ? L.pad : L.W - L.pad - pairs.length * step + 40;
-  const y = (L.statsBelow ? 286 : 176) + L.top;
-  return pairs.map(([value, label, fill], i) => pair(x0 + i * step, y, value, label, fill)).join('');
-}
-
-// Lays items out in columns of L.rows; when there are too many, the last slot says "+ N more".
-function columns(items, cols, L, what, draw) {
-  const room = cols.length * L.rows;
-  const shown = items.length > room ? items.slice(0, room - 1) : items;
-  let out = shown.map((item, i) => draw(item, cols[Math.floor(i / L.rows)], L.bandTop + 14 + (i % L.rows) * ROW, i)).join('');
-  if (items.length > shown.length) {
-    const i = shown.length;
-    out += text(cols[Math.floor(i / L.rows)], L.bandTop + 14 + (i % L.rows) * ROW + 25, `+ ${items.length - shown.length} more ${what}`, { size: 18, fill: C.muted });
-  }
-  return out;
+// Splits a long title over two lines at a space.
+function titleLines(name, max) {
+  if (name.length <= max) return [name];
+  const cut = name.lastIndexOf(' ', max);
+  const first = cut > 6 ? name.slice(0, cut) : name.slice(0, max);
+  return [first, fit(name.slice(first.length).trim(), max)];
 }
 
 // The logo: two orange halves with a real gap between them (the net), so it
-// works on any background.
-function logo(x, y) {
+// works on any background. size is its height in pixels.
+function logo(x, y, size) {
   const half = (d) => `<path d="${d}" fill="${C.orange}"/>`;
-  return half(`M${x + 9} ${y}H${x + 14}V${y + 32}H${x + 9}A9 9 0 0 1 ${x} ${y + 23}V${y + 9}A9 9 0 0 1 ${x + 9} ${y}Z`)
-    + half(`M${x + 18} ${y}H${x + 23}A9 9 0 0 1 ${x + 32} ${y + 9}V${y + 23}A9 9 0 0 1 ${x + 23} ${y + 32}H${x + 18}Z`);
+  return `<g transform="translate(${x} ${y}) scale(${size / 32})">`
+    + half('M9 0H14V32H9A9 9 0 0 1 0 23V9A9 9 0 0 1 9 0Z')
+    + half('M18 0H23A9 9 0 0 1 32 9V23A9 9 0 0 1 23 32H18Z')
+    + '</g>';
+}
+
+// See-through cards are text only: nothing is drawn behind it. A soft, faint
+// dark haze behind the letters helps them stand out on a photo without looking
+// like a shadow (plus a barely visible outline where a browser cannot draw the
+// haze), and the grey text is lightened a step. It is deliberately subtle, so
+// on a very bright photo the text has little contrast.
+function seeThrough(content) {
+  return `<defs><filter id="glow" x="-5%" y="-5%" width="110%" height="110%">
+    <feDropShadow dx="0" dy="1" stdDeviation="3.5" flood-color="#05070e" flood-opacity="0.3"/>
+    <feDropShadow dx="0" dy="3" stdDeviation="10" flood-color="#05070e" flood-opacity="0.2"/>
+  </filter></defs>
+  <g filter="url(#glow)" stroke="#05070e" stroke-opacity="0.1" stroke-width="1" stroke-linejoin="round" paint-order="stroke">
+  ${content.replaceAll(`fill="${C.muted}"`, `fill="${C.soft}"`).replaceAll(`fill="${C.soft}"`, 'fill="#eef1f8"')}
+  </g>`;
 }
 
 // Background, brand and footer shared by every card.
 function frame(body, L, { site, background }) {
-  const { W, H, pad } = L;
+  const { W, H, pad, outW, outH, scale } = L;
   const dark = background !== 'transparent';
-  const content = `${logo(pad, 52 + L.top)}
-  ${text(pad + 42, 76 + L.top, 'Sidecourt', { size: 22, weight: 700, fill: C.soft })}
+  const credit = site ? `Scored with Sidecourt · ${site}` : 'Scored with Sidecourt';
+  const content = `${logo(pad, L.top, 38)}
+  ${text(pad + 52, L.top + 29, 'Sidecourt', { size: T.brand, weight: 700, fill: C.soft })}
   ${body}
-  ${text(W / 2, L.foot, site ? `Scored with Sidecourt · ${site}` : 'Scored with Sidecourt', { size: 16, weight: 500, fill: C.muted, anchor: 'middle' })}`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${FONT}">
+  ${L.story
+    ? text(W / 2, H - STORY_SAFE.bottom - 14, credit, { size: T.foot, weight: 500, fill: C.muted, anchor: 'middle' })
+    : text(W - pad, L.top + 30, credit, { size: T.foot, weight: 500, fill: C.muted, anchor: 'end' })}`;
+  const drawn = dark ? content : seeThrough(content);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${outW}" height="${outH}" viewBox="0 0 ${outW} ${outH}" font-family="${FONT}">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d1226"/><stop offset="1" stop-color="${C.bg}"/></linearGradient>
     <radialGradient id="warm" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${C.orange}" stop-opacity="0.22"/><stop offset="1" stop-color="${C.orange}" stop-opacity="0"/></radialGradient>
     <radialGradient id="cool" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${C.blue}" stop-opacity="0.14"/><stop offset="1" stop-color="${C.blue}" stop-opacity="0"/></radialGradient>
   </defs>
   ${dark
-    ? `<rect width="${W}" height="${H}" fill="url(#bg)"/>
-  <circle cx="${W - 80}" cy="80" r="${Math.round(H * 0.34)}" fill="url(#warm)"/>
-  <circle cx="40" cy="${H - 200}" r="${Math.round(H * 0.36)}" fill="url(#cool)"/>`
+    ? `<rect width="${outW}" height="${outH}" fill="url(#bg)"/>
+  <circle cx="${outW - 80}" cy="80" r="${Math.round(outH * 0.34)}" fill="url(#warm)"/>
+  <circle cx="40" cy="${outH - 200}" r="${Math.round(outH * 0.36)}" fill="url(#cool)"/>`
     : ''}
-  ${dark ? content : seeThrough(content)}
+  ${scale === 1 ? drawn : `<g transform="scale(${scale})">${drawn}</g>`}
 </svg>`;
 }
 
-// See-through cards are text only: nothing is drawn behind it. A light dark
-// glow hugging each letter keeps it readable on bright and dark photos alike
-// (a thin outline does the same job where a browser cannot draw the glow),
-// and the grey text is lightened a step.
-function seeThrough(content) {
-  return `<defs><filter id="glow" x="-5%" y="-5%" width="110%" height="110%">
-    <feDropShadow dx="0" dy="0" stdDeviation="1.2" flood-color="#05070e" flood-opacity="0.7"/>
-    <feDropShadow dx="0" dy="1" stdDeviation="3" flood-color="#05070e" flood-opacity="0.28"/>
-  </filter></defs>
-  <g filter="url(#glow)" stroke="#05070e" stroke-opacity="0.3" stroke-width="1.2" stroke-linejoin="round" paint-order="stroke">
-  ${content.replaceAll(`fill="${C.muted}"`, `fill="${C.soft}"`).replaceAll(`fill="${C.soft}"`, 'fill="#eef1f8"')}
-  </g>`;
+// Level 1, top band: a small coloured line, the big title or name, a quiet line under it.
+function header(L, { eyebrow, eyebrowFill = C.blue, badge = null, lines, subs }) {
+  let y = L.top + 104;
+  let out = badge
+    ? `<circle cx="${L.pad + 20}" cy="${y - 10}" r="20" fill="${badge.fill}"/>` + text(L.pad + 20, y - 1, badge.text, { size: 26, weight: 800, fill: C.bg, anchor: 'middle' }) + label(L.pad + 54, y, eyebrow, eyebrowFill)
+    : label(L.pad, y, eyebrow, eyebrowFill);
+  lines.forEach((line) => { y += T.title + 8; out += text(L.pad, y, line, { size: T.title, weight: 800 }); });
+  y += 20;
+  subs.forEach((sub) => { y += T.sub + 10; out += text(L.pad, y, sub, { size: T.sub, weight: 500, fill: C.muted }); });
+  return out;
 }
 
 export function overallStats(summary) {
@@ -139,42 +152,54 @@ export function closestGames(summary, count = 3) {
 
 /* ---------- Card 1: overall ---------- */
 
-function rankingRow(p, x, y, w) {
-  const m = MEDAL[p.rank];
-  return text(x + 10, y + 25, p.rank, { size: 19, weight: 700, fill: m ?? C.muted, anchor: 'middle' })
-    + text(x + 34, y + 25, fit(p.name, Math.max(6, Math.floor((w - 190) / 11))), { size: 21, weight: m ? 600 : 500, fill: C.soft })
-    + text(x + w - 78, y + 25, `${p.wins}–${p.losses}`, { size: 21, weight: 600, fill: C.soft, anchor: 'end' })
-    + text(x + w, y + 25, signed(p.diff), { size: 19, weight: 500, fill: diffColor(p.diff), anchor: 'end' });
+// Level 2 on the overall card: one of the top 3. Medal, name, then their record.
+function podiumRow(p, x, y, w) {
+  const m = MEDAL[Math.min(p.rank, 3)];
+  return `<circle cx="${x + 22}" cy="${y - 15}" r="22" fill="${m}"/>`
+    + text(x + 22, y - 6, p.rank, { size: 26, weight: 800, fill: C.bg, anchor: 'middle' })
+    + text(x + 62, y, fit(p.name, Math.max(6, Math.floor((w - 360) / 23))), { size: T.row, weight: 700 })
+    + text(x + w - 140, y, `${p.wins}–${p.losses}`, { size: T.row, weight: 800, anchor: 'end' })
+    + text(x + w, y, signed(p.diff), { size: 31, weight: 600, fill: diffColor(p.diff), anchor: 'end' });
 }
 
-function matchRow(r, x, y, w) {
+function closeRow(r, x, y, w) {
   const won = winnerOf(r);
   const mid = x + w / 2;
-  const max = Math.floor((w / 2 - 40) / 10.6);
-  const team = (i) => ({ size: 19, weight: won === (i ? 'b' : 'a') ? 600 : 500, fill: won === (i ? 'b' : 'a') ? C.soft : C.muted });
-  const score = r.score ? `${r.score.a}–${r.score.b}` : won ? (won === 'a' ? 'W–L' : 'L–W') : '–';
-  return text(mid - 40, y + 25, fit(r.teams[0].join(' & '), max), { ...team(0), anchor: 'end' })
-    + text(mid, y + 25, score, { size: 19, weight: 700, fill: C.soft, anchor: 'middle' })
-    + text(mid + 40, y + 25, fit(r.teams[1].join(' & '), max), team(1));
+  const max = Math.floor((w / 2 - 60) / 14.5);
+  const team = (i) => ({ size: T.detail, weight: won === (i ? 'b' : 'a') ? 700 : 500, fill: won === (i ? 'b' : 'a') ? C.text : C.muted });
+  return text(mid - 60, y, fit(r.teams[0].join(' & '), max), { ...team(0), anchor: 'end' })
+    + text(mid, y, `${r.score.a}–${r.score.b}`, { size: T.detail, weight: 800, anchor: 'middle' })
+    + text(mid + 60, y, fit(r.teams[1].join(' & '), max), team(1));
 }
 
 function overallCard(summary, L, opts) {
   const o = overallStats(summary);
   const ranked = summary.standings.filter((p) => p.played);
-  let body = text(L.pad, 142 + L.top, 'FINAL STANDINGS', { size: 15, weight: 700, fill: C.blue, spacing: 4 })
-    + text(L.pad, 188 + L.top, fit(summary.name.trim() || 'Open play', 34), { size: 40, weight: 700 })
-    + text(L.pad, 220 + L.top, `${cap(summary.sport)} · ${dateText(summary.endedAt)}`, { size: 19, weight: 500, fill: C.muted })
-    + statsRow(L, [[o.games, o.games === 1 ? 'GAME' : 'GAMES'], [o.players, o.players === 1 ? 'PLAYER' : 'PLAYERS'], [o.points, 'POINTS']]);
+  const name = summary.name.trim() || 'Open play';
+  let body = header(L, {
+    eyebrow: 'FINAL STANDINGS',
+    lines: L.story ? titleLines(name, 20) : [fit(name, 36)],
+    subs: [`${cap(summary.sport)} · ${dateText(summary.endedAt)}`, `${plural(o.games, 'game')} · ${plural(o.players, 'player')} · ${plural(o.points, 'point')}`],
+  });
+  if (!ranked.length) return frame(body + text(L.pad, L.bottom, 'No games were played.', { size: T.sub, fill: C.muted }), L, opts);
 
-  if (!ranked.length) return frame(body + text(L.pad, L.bandTop + 40, 'No games were played.', { size: 22, fill: C.muted }), L, opts);
+  const top = ranked.slice(0, 3);
+  const step = 70;
+  const first = L.bottom - (top.length - 1) * step;
+  const w = L.story ? L.W - 2 * L.pad : 860;
+  body += label(L.pad, first - 62, top.length > 1 ? `TOP ${top.length}` : 'WINNER')
+    + top.map((p, i) => podiumRow(p, L.pad, first + i * step, w)).join('');
 
-  const close = closestGames(summary, 3);
-  body += heading(L.rankCols[0], L.bandTop, ranked.length > 5 ? 'TOP 5' : 'RANKINGS')
-    + columns(ranked.slice(0, 5), L.rankCols, L, 'players', (p, x, y) => rankingRow(p, x, y, L.rankW))
-    + (close.length
-      ? heading(L.matchCols[0], L.bandTop, close.length === 1 ? 'CLOSEST GAME' : 'CLOSEST GAMES')
-        + columns(close, L.matchCols, L, 'games', (r, x, y) => matchRow(r, x, y, L.matchW))
-      : '');
+  // Landscape has room on the right for the closest games.
+  if (!L.story) {
+    const close = closestGames(summary, 3);
+    const cx = L.rightCol;
+    const cFirst = L.bottom - (close.length - 1) * step;
+    if (close.length) {
+      body += label(cx, cFirst - 62, close.length === 1 ? 'CLOSEST GAME' : 'CLOSEST GAMES')
+        + close.map((r, i) => closeRow(r, cx, cFirst + i * step, L.W - L.pad - cx)).join('');
+    }
+  }
   return frame(body, L, opts);
 }
 
@@ -197,28 +222,50 @@ export function playerMatches(summary, name) {
     });
 }
 
-function playerMatchRow(m, x, y) {
-  const color = { win: C.green, loss: C.red, none: C.muted }[m.result];
-  const score = m.score ?? { win: 'Won', loss: 'Lost', none: '–' }[m.result];
-  return text(x + 10, y + 25, { win: 'W', loss: 'L', none: '–' }[m.result], { size: 19, weight: 700, fill: color, anchor: 'middle' })
-    + text(x + 38, y + 25, score, { size: 20, weight: 700, fill: C.soft })
-    + text(x + 124, y + 25, m.partner ? `with ${fit(m.partner, 14)}` : 'Singles', { size: 20, weight: 500, fill: C.soft })
-    + text(x + 330, y + 25, `vs ${fit(m.opponents, 26)}`, { size: 20, weight: 500, fill: C.muted });
+const RESULT = { win: { letter: 'W', fill: C.green }, loss: { letter: 'L', fill: C.red }, none: { letter: '–', fill: C.muted } };
+
+// Recent form as letters: W W L W. Compact, and readable at a glance.
+function formLine(games, x, y) {
+  const recent = games.slice(-8);
+  return label(x, y, games.length > recent.length ? `LAST ${recent.length}` : 'GAMES')
+    + recent.map((g, i) => text(x + 174 + i * 48, y + 2, RESULT[g.result].letter, { size: 34, weight: 800, fill: RESULT[g.result].fill, anchor: 'middle' })).join('');
+}
+
+function gameRow(g, x, y) {
+  return text(x + 14, y, RESULT[g.result].letter, { size: T.detail, weight: 800, fill: RESULT[g.result].fill, anchor: 'middle' })
+    + text(x + 50, y, g.score ?? { win: 'Won', loss: 'Lost', none: '–' }[g.result], { size: T.detail, weight: 800 })
+    + text(x + 170, y, g.partner ? `with ${fit(g.partner, 12)}` : 'Singles', { size: T.detail, weight: 600, fill: C.soft })
+    + text(x + 420, y, `vs ${fit(g.opponents, 18)}`, { size: T.detail, weight: 500, fill: C.muted });
 }
 
 function playerCard(summary, p, L, opts) {
   const place = Math.min(p.rank, 3);
-  const m = MEDAL[place];
   const games = playerMatches(summary, p.name);
-  const last = games.slice(L.statsBelow ? -4 : -3); // portrait: 4 rows, landscape: 3 (one column)
-  const body = `<circle cx="${L.pad + 13}" cy="${137 + L.top}" r="13" fill="${m}"/>`
-    + text(L.pad + 13, 143 + L.top, p.rank, { size: 17, weight: 800, fill: C.bg, anchor: 'middle' })
-    + text(L.pad + 36, 142 + L.top, PLACE[place], { size: 15, weight: 700, fill: m, spacing: 4 })
-    + text(L.pad, 190 + L.top, fit(p.name, 28), { size: 44, weight: 700 })
-    + text(L.pad, 222 + L.top, fit(`${summary.name.trim() || 'Open play'} · ${dateText(summary.endedAt)}`, 60), { size: 19, weight: 500, fill: C.muted })
-    + statsRow(L, [[`${p.wins}–${p.losses}`, 'W – L'], [pct(p), 'WIN RATE'], [signed(p.diff), 'PTS +/−', diffColor(p.diff)], [p.played, p.played === 1 ? 'GAME' : 'GAMES']])
-    + heading(L.playerCols[0], L.bandTop, games.length > last.length ? `LAST ${last.length} OF ${games.length} GAMES` : 'GAMES')
-    + columns(last, L.playerCols, L, 'games', (match, x, y) => playerMatchRow(match, x, y));
+  let body = header(L, {
+    eyebrow: PLACE[place],
+    eyebrowFill: MEDAL[place],
+    badge: { fill: MEDAL[place], text: p.rank },
+    lines: [fit(p.name, L.story ? 20 : 30)],
+    subs: [fit(`${summary.name.trim() || 'Open play'} · ${dateText(summary.endedAt)}`, L.story ? 52 : 70)],
+  });
+
+  // Level 2: three headline numbers, each a small label over a very large value.
+  const stats = [['WINS – LOSSES', `${p.wins}–${p.losses}`], ['WIN RATE', pct(p)], ['POINTS +/−', signed(p.diff), diffColor(p.diff)]];
+  const col = L.story ? 316 : 330;
+  const statsY = L.story ? L.bottom - 164 : L.bottom - (T.value + 2);
+  body += stats.map(([name, value, fill], i) => stat(L.pad + i * col, statsY, name, value, fill)).join('');
+
+  // Level 3: recent form (story), or the last three games in full (landscape has the width).
+  if (L.story) {
+    body += formLine(games, L.pad, L.bottom);
+  } else {
+    const last = games.slice(-3);
+    const gx = L.rightCol;
+    const step = 60;
+    const first = L.bottom - (last.length - 1) * step;
+    body += label(gx, first - 60, games.length > last.length ? `LAST ${last.length} OF ${games.length} GAMES` : 'GAMES')
+      + last.map((g, i) => gameRow(g, gx, first + i * step)).join('');
+  }
   return frame(body, L, opts);
 }
 
@@ -226,13 +273,13 @@ function playerCard(summary, p, L, opts) {
 
 // Returns [{ id, title, file, width, height, svg }]: the overall card, then one per top-3 player.
 //   orientation: 'portrait' | 'landscape'    background: 'dark' | 'transparent'
-//   site: shown in the footer, e.g. "sidecourt.netlify.app"
+//   site: shown in the footer, e.g. "sidecourt.pages.dev"
 export function shareCards(summary, { site = '', orientation = 'portrait', background = 'dark' } = {}) {
   const L = LAYOUTS[orientation] ?? LAYOUTS.portrait;
   const opts = { site, background };
   const slug = (summary.name.trim() || 'open-play').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'open-play';
   const top = summary.standings.filter((p) => p.played).slice(0, 3);
-  const card = (id, title, svg) => ({ id, title, file: `${slug}-${id}.png`, width: L.W, height: L.H, svg });
+  const card = (id, title, svg) => ({ id, title, file: `${slug}-${id}.png`, width: L.outW, height: L.outH, svg });
   return [
     card('overall', 'Overall', overallCard(summary, L, opts)),
     ...top.map((p, i) => card(`top-${i + 1}`, `Top ${i + 1}: ${p.name}`, playerCard(summary, p, L, opts))),

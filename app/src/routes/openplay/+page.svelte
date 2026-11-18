@@ -138,7 +138,7 @@
       {/if}
 
       <section class="area-courts stack tight">
-        <h2 class="section-title">Courts</h2>
+        <h2 class="section-title"><span class="title-icon"><Icon name="grid" size={18} /></span>Courts</h2>
         <div class="courts">
           {#each courts as court (court.id)}
             <!-- A new game on a court re-creates its card, which plays the "started" animation -->

@@ -60,7 +60,7 @@
 
   {#if ranked.length}
     <section class="card stack">
-      <h2 class="section-title">Rankings</h2>
+      <h2 class="section-title"><span class="title-icon warm"><Icon name="trophy" size={18} /></span>Rankings</h2>
       <RankingList {ranked} />
       {#if unplayed.length}
         <p class="muted small">Checked in but did not play: {unplayed.map((p) => p.name).join(', ')}</p>
@@ -79,7 +79,7 @@
 
   {#if s.results.length}
     <details class="card fold">
-      <summary><span class="section-label">All games</span><span class="muted small">{plural(s.results.length, 'game')}</span></summary>
+      <summary><span class="section-label"><span class="title-icon"><Icon name="history" size={18} /></span>All games</span><span class="muted small">{plural(s.results.length, 'game')}</span></summary>
       <ul class="results fold-body">
         {#each s.results as result, i (i)}<ResultRow {result} />{/each}
       </ul>

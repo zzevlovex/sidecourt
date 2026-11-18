@@ -33,7 +33,7 @@
 
 <section class="card stack">
   <div class="row between">
-    <h2 class="section-title">Open play history</h2>
+    <h2 class="section-title"><span class="title-icon"><Icon name="history" size={18} /></span>Open play history</h2>
     {#if sessions?.length}<span class="muted small">{plural(sessions.length, 'session')}</span>{/if}
   </div>
 

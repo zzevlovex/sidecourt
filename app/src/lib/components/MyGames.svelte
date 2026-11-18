@@ -1,5 +1,6 @@
 <script>
   // The signed-in player's saved games: totals, then each game.
+  import Icon from '$lib/components/Icon.svelte';
   import { account } from '$lib/account.svelte.js';
   import { myGames } from '$lib/history.svelte.js';
 
@@ -24,7 +25,7 @@
 </script>
 
 <section class="card stack">
-  <h2 class="section-title">My games</h2>
+  <h2 class="section-title"><span class="title-icon"><Icon name="score" size={18} /></span>My games</h2>
   {#if failed}
     <p class="form-error">Could not load your games. Check your connection.</p>
   {:else if !games}

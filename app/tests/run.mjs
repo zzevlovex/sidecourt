@@ -252,7 +252,7 @@ assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
   assert.deepEqual(cards.map((c) => c.id), ['overall', 'top-1', 'top-2', 'top-3']);
   assert.deepEqual(cards.map((c) => c.file), ['friday-night-overall.png', 'friday-night-top-1.png', 'friday-night-top-2.png', 'friday-night-top-3.png']);
   for (const c of cards) assert.ok(c.svg.startsWith('<svg') && !c.svg.includes('<b>') && !c.svg.includes('undefined') && !c.svg.includes('NaN'), c.id);
-  assert.ok(cards[0].svg.includes('RANKINGS') && cards[0].svg.includes('CLOSEST GAME') && cards[0].svg.includes('Ana &lt;b&gt;&amp;'));
+  assert.ok(cards[0].svg.includes('FINAL STANDINGS') && cards[0].svg.includes('TOP 3') && cards[0].svg.includes('Ana &lt;b&gt;&amp;'));
   assert.ok(cards[1].svg.includes('1ST PLACE') && cards[2].svg.includes('2ND PLACE') && cards[3].svg.includes('3RD PLACE'));
   assert.ok(cards[0].svg.includes('…') && !cards[0].svg.includes('A very long player name indeed'));
   // Ana's matches in playing order, seen from her side.
@@ -261,28 +261,35 @@ assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
     { partner: 'Cy', opponents: 'A very long player name indeed & Dee', court: 2, result: 'win', score: null },
   ]);
   assert.equal(playerMatches(sum, 'Dee')[0].score, '5–11'); // loser sees their own score first
-  // Landscape and transparent: right size, and no dark background rectangle.
+
+  // Sizes: story 1080x1920; landscape 1920x1080, laid out larger and drawn at 80% so its text is smaller.
   const wide = shareCards(sum, { orientation: 'landscape', background: 'transparent' });
   assert.deepEqual([wide[0].width, wide[0].height, cards[0].width, cards[0].height], [1920, 1080, 1080, 1920]);
-  assert.ok(wide.every((c) => c.svg.includes('width="1920" height="1080"') && !c.svg.includes('fill="url(#bg)"')));
-  assert.ok(cards.every((c) => c.svg.includes('fill="url(#bg)"')));
-  // See-through is text only: no background shape of any kind, and the letters carry the glow.
-  assert.ok(wide.every((c) => c.svg.includes('filter="url(#glow)"')));
-  assert.ok(wide.every((c) => !/<rect|fill="url\(#(bg|warm|cool)\)"/.test(c.svg)));
-  assert.ok(cards.every((c) => !c.svg.includes('url(#glow)'))); // the dark card needs no glow
-  // The middle stays empty for a photo: no text between the top band and the bottom band.
-  for (const [cardsOf, from, to] of [[cards, 540, 1330], [wide, 240, 846]]) {
-    for (const c of cardsOf) {
-      const ys = [...c.svg.matchAll(/<text x="[^"]+" y="([\d.]+)"/g)].map((mm) => Number(mm[1]));
-      assert.ok(ys.length > 5 && ys.every((y) => y < from || y > to), `${c.id}: text in the photo area`);
-    }
+  assert.ok(wide.every((c) => c.svg.includes('width="1920" height="1080"') && c.svg.includes('transform="scale(0.8)"')));
+  assert.ok(cards.every((c) => !c.svg.includes('transform="scale(')));
+  // Dark has a background and no shadow. See-through is text only: no background shape, letters carry the soft glow.
+  assert.ok(cards.every((c) => c.svg.includes('fill="url(#bg)"') && !c.svg.includes('url(#glow)')));
+  assert.ok(wide.every((c) => c.svg.includes('filter="url(#glow)"') && !/<rect|fill="url\(#(bg|warm|cool)\)"/.test(c.svg)));
+
+  // Every text line as [baseline y, font size].
+  const lines = (svg) => [...svg.matchAll(/<text x="[^"]+" y="([\d.]+)" font-size="([\d.]+)"/g)].map((mm) => [Number(mm[1]), Number(mm[2])]);
+  // Type is big enough to read on a phone: headline numbers at least 3x the smallest text.
+  for (const c of cards.slice(1)) {
+    const sizes = lines(c.svg).map(([, size]) => size);
+    assert.ok(Math.max(...sizes) >= 90 && Math.min(...sizes) >= 22, `${c.id}: ${Math.min(...sizes)}–${Math.max(...sizes)}px`);
   }
-  // Portrait is an Instagram story: every line of text stays clear of the areas Instagram covers.
+  // Story: text stays inside the area kept clear of Instagram's bars (half of their full reach).
+  assert.deepEqual(STORY_SAFE, { top: 125, bottom: 170 });
   for (const c of [...cards, ...shareCards(sum, { background: 'transparent' })]) {
-    const lines = [...c.svg.matchAll(/<text x="[^"]+" y="([\d.]+)" font-size="([\d.]+)"/g)].map((mm) => [Number(mm[1]), Number(mm[2])]);
-    assert.ok(lines.length > 5 && lines.every(([y, size]) => y - size >= STORY_SAFE.top && y <= 1920 - STORY_SAFE.bottom), `${c.id}: text under Instagram's bars`);
+    assert.ok(lines(c.svg).length > 5 && lines(c.svg).every(([y, size]) => y - size >= STORY_SAFE.top && y <= 1920 - STORY_SAFE.bottom), `${c.id}: text outside the kept-clear area`);
   }
-  // Highlights only: top 5, the 3 closest games, a player's last games.
+  // The middle stays empty for a photo: no text between the top band and the bottom band.
+  // (Landscape positions are on its 2400x1350 layout canvas.)
+  for (const [cardsOf, from, to] of [[cards, 520, 1440], [wide, 370, 1060]]) {
+    for (const c of cardsOf) assert.ok(lines(c.svg).every(([y]) => y < from || y > to), `${c.id}: text in the photo area`);
+  }
+
+  // Few things per card: top 3; closest games only where there is room (landscape); form letters on the story.
   const g = (a, b, sa, sb) => ({ court: 1, teams: [a, b], score: { a: sa, b: sb } });
   const night = [ // newest first
     g(['P1', 'P2'], ['P3', 'P4'], 11, 10), // gap 1
@@ -294,11 +301,14 @@ assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
   ];
   const big = { name: 'Big night', sport: 'pickleball', endedAt: '2026-11-20T10:00:00Z', games: 6, results: night, standings: rankings(night) };
   assert.deepEqual(closestGames(big, 3), [night[0], night[2], night[3]]);
-  const [bigOverall, bigTop1] = shareCards(big);
-  assert.ok(bigOverall.svg.includes('TOP 5') && bigOverall.svg.includes('CLOSEST GAMES'));
-  assert.ok(bigOverall.svg.includes('11–10') && !bigOverall.svg.includes('11–3') && !bigOverall.svg.includes('11–5'));
-  assert.ok(bigTop1.svg.includes('LAST 4 OF 5 GAMES')); // P1 played 5
-  assert.ok(shareCards(big, { orientation: 'landscape' })[1].svg.includes('LAST 3 OF 5 GAMES'));
+  const [storyOverall, storyTop1] = shareCards(big);
+  const [wideOverall, wideTop1] = shareCards(big, { orientation: 'landscape' });
+  assert.ok(storyOverall.svg.includes('TOP 3') && !storyOverall.svg.includes('CLOSEST'));
+  assert.ok(wideOverall.svg.includes('CLOSEST GAMES') && wideOverall.svg.includes('11–10') && !wideOverall.svg.includes('11–3'));
+  assert.equal((storyTop1.svg.match(/>W<\/text>/g) || []).length, 5); // P1 won all 5: five W letters
+  assert.ok(storyTop1.svg.includes('WIN RATE') && storyTop1.svg.includes('100%'));
+  assert.ok(wideTop1.svg.includes('LAST 3 OF 5 GAMES'));
+
   // Empty session: only the overall card, saying so.
   const empty = shareCards({ ...sum, games: 0, results: [], standings: [] });
   assert.ok(empty.length === 1 && empty[0].svg.includes('No games were played.'));

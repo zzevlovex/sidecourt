@@ -46,7 +46,7 @@
 </script>
 
 <section class="card stack area-checkin">
-  <h2 class="section-title">Check in players</h2>
+  <h2 class="section-title"><span class="title-icon warm"><Icon name="user-plus" size={18} /></span>Check in players</h2>
 
   <!-- 1. By name: the everyday way, so it gets the one orange button -->
   <form class="stack tight" onsubmit={submit}>

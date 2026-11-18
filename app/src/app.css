@@ -676,3 +676,117 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px soli
 /* Share preview never makes the dialog taller than the screen. */
 .share-preview.portrait img { max-height: min(46vh, 420px); }
 .share-preview.landscape img { max-height: min(34vh, 260px); }
+
+/* ---------- Character pass ----------
+   Small additions that give the app more life without changing the order of
+   importance on any page: icons on section titles, a court motif, finer
+   surfaces, status dots, a gentle entrance, a footer. */
+
+/* 1. A faint court-line grid behind the top of every page */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(125, 180, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 180, 255, 0.055) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(120% 65% at 50% 0%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(120% 65% at 50% 0%, #000 0%, transparent 78%);
+}
+
+/* 2. Section titles get a small icon tile: easier to find a section at a glance */
+.title-icon { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--blue-tint); color: var(--blue); }
+.title-icon.warm { background: var(--orange-tint); color: var(--orange); }
+.section-title:has(.title-icon), .section-label:has(.title-icon) { display: flex; align-items: center; gap: 10px; }
+
+/* 3. Cards: a finer, lit top edge instead of a flat outline */
+.card:not(.quiet):not(.court.free):not(.next-card):not(.join-card):not(.me-card):not(.key-card):not(.action-card) {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0) 140px) padding-box,
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04) 45%, rgba(255, 255, 255, 0.04)) border-box;
+}
+
+/* 4. Courts: a strip in the two team colours on a live court, green when a free court is ready */
+.court { position: relative; overflow: hidden; }
+.court.playing::before, .court.free.ready::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 4px; }
+.court.playing::before { background: linear-gradient(90deg, var(--blue) 0 50%, var(--orange) 50% 100%); }
+.court.free.ready::before { background: var(--green); opacity: 0.75; }
+
+/* 5. Stat chips: a status dot (colour is backed by the words next to it) */
+.stat-row .stat-chip { display: inline-flex; align-items: center; gap: 8px; }
+.stat-row .stat-chip::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--blue); }
+.stat-row .stat-chip:nth-child(2)::before { background: var(--orange); }
+.stat-row .stat-chip:nth-child(3)::before { background: var(--muted); }
+.stat-row .stat-chip.go::before { background: var(--green); }
+
+/* 6. Buttons: a slight gradient and edge so the main actions feel pressable */
+.btn-primary, .segmented button.on, .seg input:checked + span, .avatar { background: linear-gradient(180deg, #ff9d68, var(--orange)); }
+.btn-primary { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 1px 2px rgba(0, 0, 0, 0.35); }
+.btn-light { background: linear-gradient(180deg, #ffffff, #e2e6f3); box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(0, 0, 0, 0.35); }
+
+/* 7. Page heads: a short accent before the small label, a fading rule under the head */
+.eyebrow { display: inline-flex; align-items: center; gap: 8px; }
+.eyebrow::before { content: ''; flex: none; width: 18px; height: 2px; border-radius: 2px; background: currentColor; }
+/* Centred heads (standings, dialogs) keep the plain label: the accent is for left-aligned heads. */
+.final-head .eyebrow, .center-col .eyebrow { display: block; }
+.final-head .eyebrow::before, .center-col .eyebrow::before { display: none; }
+.badge { white-space: nowrap; }
+.session-head { padding-bottom: 14px; border-bottom: 1px solid; border-image: linear-gradient(90deg, var(--border), transparent 85%) 1; }
+
+/* 8. Home: a small court drawing, the brand's own picture */
+.hero { position: relative; }
+.hero::after {
+  content: ''; position: absolute; right: 0; top: -6px; z-index: -1; width: 132px; aspect-ratio: 42 / 15; opacity: 0.55;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 420 150' fill='none' stroke-linecap='round'%3E%3Crect x='3' y='3' width='414' height='144' rx='10' stroke='%237db4ff' stroke-opacity='.55' stroke-width='3'/%3E%3Cpath d='M150 3v144M270 3v144M3 75h147M270 75h147' stroke='%237db4ff' stroke-opacity='.35' stroke-width='3'/%3E%3Cpath d='M210 -4v158' stroke='%23ff8a4c' stroke-width='5'/%3E%3Ccircle cx='318' cy='44' r='9' fill='%23e8ff5a'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+@media (min-width: 1100px) {
+  .hero::after { position: static; display: block; z-index: auto; width: min(100%, 440px); margin-top: 12px; opacity: 0.9; }
+}
+.join-card { position: relative; overflow: hidden; }
+.join-card::after { content: ''; position: absolute; right: -50px; top: -60px; width: 190px; height: 190px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 138, 76, 0.22), transparent 70%); pointer-events: none; }
+.action-card:has(.title-icon) { padding-left: 66px; }
+.action-card .title-icon { position: absolute; left: 16px; top: 50%; translate: 0 -50%; }
+
+/* 9. Waiting line: the place number sits in a small tile; next up is orange */
+.queue .queue-item .pos { flex: none; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--bg); font-size: 0.85rem; }
+.queue .queue-item.next .pos { background: var(--orange); color: var(--bg); }
+/* Phones: the row was cramped (its small text broke over four lines). The Pair
+   button becomes icon-only, and the detail line is shorter and not in capitals. */
+.queue-item .tag { text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 0.8rem; }
+@media (max-width: 480px) {
+  .queue-item { gap: 8px; padding-left: 10px; }
+  .queue-item .pair-btn:not(.pick) { width: 44px; padding: 0; justify-content: center; font-size: 0; gap: 0; }
+  .queue-item .item-actions { gap: 0; }
+}
+
+/* 10. Empty lists say so with a little more presence */
+.empty-line { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 14px; }
+.empty-line::before { content: ''; width: 38px; height: 38px; border-radius: 12px; background: var(--raised) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a2abc6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E") center / 18px no-repeat; }
+
+/* 11. A gentle entrance when a page opens, top to bottom */
+@keyframes rise-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* :where() keeps these at zero weight, so any element's own animation (flash, pop, ring) still wins. */
+:where(.main-col, .side-col, .home-actions, .account, .final, .lobby) > :where(*) { animation: rise-in 0.45s cubic-bezier(.2, .8, .2, 1) both; }
+:where(.main-col, .side-col, .home-actions, .account, .final, .lobby) > :where(:nth-child(2)) { animation-delay: 60ms; }
+:where(.main-col, .side-col, .home-actions, .account, .final, .lobby) > :where(:nth-child(3)) { animation-delay: 120ms; }
+:where(.main-col, .side-col, .home-actions, .account, .final, .lobby) > :where(:nth-child(4)) { animation-delay: 180ms; }
+:where(.main-col, .side-col, .home-actions, .account, .final, .lobby) > :where(:nth-child(n + 5)) { animation-delay: 240ms; }
+
+/* 12. Scoreboard: a dashed net between the two sides on wide screens */
+@media (min-width: 720px) {
+  .sides { position: relative; }
+  .sides::after { content: ''; position: absolute; left: 50%; top: 6%; bottom: 6%; width: 2px; translate: -1px 0; background: repeating-linear-gradient(180deg, var(--muted) 0 6px, transparent 6px 14px); opacity: 0.5; pointer-events: none; }
+}
+
+/* 13. Standings: a soft gold light behind the title */
+.final-head { padding: 22px 12px 6px; border-radius: var(--r-lg); background: radial-gradient(70% 110% at 50% 0%, rgba(242, 193, 78, 0.13), transparent 70%); }
+
+/* 14. Account: the player-code panel reads as a card you can show */
+.player-code { border: 1px solid var(--line); background: linear-gradient(135deg, var(--raised), var(--surface)); }
+
+/* 15. Footer: finishes every page */
+.page-wrap { padding-bottom: 40px; }
+.site-footer { max-width: calc(var(--page-max) + 2 * var(--gutter)); margin: 0 auto; padding: 20px var(--gutter) calc(26px + env(safe-area-inset-bottom)); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.8rem; }
+.site-footer strong { color: var(--soft, var(--text)); font-family: var(--display); }
+.site-footer .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--border); }

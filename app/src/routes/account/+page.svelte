@@ -73,7 +73,7 @@
   {:else if account.user && account.recovering}
     <!-- Opened from the "forgot key" email -->
     <section class="card stack">
-      <h2 class="section-title">Get a new key</h2>
+      <h2 class="section-title"><span class="title-icon"><Icon name="key" size={18} /></span>Get a new key</h2>
       <p class="muted">You're signed in from your recovery email. Get a new key to use from now on.</p>
       {#if error}<p class="form-error" role="alert">{error}</p>{/if}
       <button class="btn btn-primary" disabled={busy} onclick={() => run(async () => showKey(await account.replaceKey()))}>Get my new key</button>
@@ -104,7 +104,7 @@
     <MyGames />
 
     <section class="card stack quiet">
-      <h2 class="section-title">Recovery email</h2>
+      <h2 class="section-title"><span class="title-icon"><Icon name="mail" size={18} /></span>Recovery email</h2>
       {#if account.email}
         <p>Recovery email: <strong>{account.email}</strong></p>
       {:else}
@@ -120,7 +120,7 @@
     </section>
 
     <section class="card stack quiet">
-      <h2 class="section-title">Key</h2>
+      <h2 class="section-title"><span class="title-icon"><Icon name="key" size={18} /></span>Key</h2>
       <p class="muted small">Think someone saw your key? Get a new one. The old key stops working right away.</p>
       <button class="btn btn-ghost" disabled={busy} onclick={() => run(async () => showKey(await account.replaceKey()))}>Get a new key</button>
     </section>

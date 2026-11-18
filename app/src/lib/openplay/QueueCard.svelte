@@ -21,17 +21,17 @@
   function details(entry) {
     const games = Math.min(...entry.p.map((n) => session.games[n] || 0));
     return [
-      entry.p.length === 2 ? 'Partners' : 'Random teammate',
-      `${plural(games, 'game')} played`,
+      entry.p.length === 2 ? 'Partners' : 'Random',
+      plural(games, 'game'),
       entry.addedBy ? `by ${entry.addedBy}` : '',
-      entry.p.some((n) => session.accounts?.[n]) ? 'Account linked' : '',
+      entry.p.some((n) => session.accounts?.[n]) ? 'Linked' : '',
     ].filter(Boolean).join(' · ');
   }
 </script>
 
 <section class="card stack area-line">
   <div class="row between">
-    <h2 class="section-title">Waiting line</h2>
+    <h2 class="section-title"><span class="title-icon"><Icon name="list" size={18} /></span>Waiting line</h2>
     <span class="count">{waitingCount(session)}</span>
   </div>
 

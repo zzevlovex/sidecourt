@@ -227,7 +227,7 @@
     {/if}
 
     <section class="stack tight">
-      <h2 class="section-title">Courts</h2>
+      <h2 class="section-title"><span class="title-icon"><Icon name="grid" size={18} /></span>Courts</h2>
       <div class="courts">
         {#each s.courts as court (court.id)}
           <article class={['card court', court.teams.length ? 'playing' : 'free']}>
@@ -254,7 +254,7 @@
     {/if}
 
     <section class="card stack">
-      <div class="row between"><h2 class="section-title">Waiting line</h2><span class="count">{waitingCount(s)}</span></div>
+      <div class="row between"><h2 class="section-title"><span class="title-icon"><Icon name="list" size={18} /></span>Waiting line</h2><span class="count">{waitingCount(s)}</span></div>
       <ol class="queue">
         {#each s.queue as entry, i (entry.id)}
           <li class={['queue-item', entry.p.some(isMe) && 'picking']}>
