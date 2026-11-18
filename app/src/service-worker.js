@@ -4,7 +4,9 @@
 import { build, files, prerendered, version } from '$service-worker';
 
 const CACHE = `sidecourt-${version}`;
-const APP_FILES = [...build, ...files, ...prerendered];
+// "_headers" is a settings file for the host, not something browsers can fetch:
+// leaving it in would make the offline install fail.
+const APP_FILES = [...build, ...files.filter((file) => file !== '/_headers'), ...prerendered];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', (event) => {
