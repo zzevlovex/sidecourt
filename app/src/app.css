@@ -843,3 +843,16 @@ body::before {
   .site-footer { flex-direction: column; text-align: center; }
   .site-footer .dot { display: none; }
 }
+
+/* "Not me" on a history row: small, out of the way */
+.not-me { display: inline-flex; align-items: center; min-height: 32px; padding: 0 2px; border: none; background: none; color: var(--muted); font: inherit; font-size: 0.78rem; text-decoration: underline; cursor: pointer; }
+.not-me:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+@media (hover: hover) { .not-me:hover { color: var(--text); } }
+
+/* Terms and privacy: comfortable reading width */
+.legal { max-width: 68ch; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+.legal section { display: flex; flex-direction: column; gap: 10px; }
+.legal h2 { font-size: 1.15rem; }
+.legal p, .legal ul { margin: 0; color: var(--soft, var(--text)); line-height: 1.6; }
+.legal ul { padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.site-footer a { color: inherit; }

@@ -9,10 +9,19 @@ export function publicState(session) {
   return rest;
 }
 
+// A score sent from another phone is not trusted: it must look like a real match.
+const count = (n) => Number.isInteger(n) && n >= 0 && n <= 999;
+function validMatch(m) {
+  if (!m || typeof m !== 'object' || !count(m.a) || !count(m.b) || !Array.isArray(m.history)) return false;
+  if (m.serving !== 'a' && m.serving !== 'b') return false;
+  if (m.sport === 'badminton') return count(m.games?.a) && count(m.games?.b) && Array.isArray(m.finished);
+  return m.sport === 'pickleball';
+}
+
 // Is this scoreboard match the game now on this court? A match left over from
 // an earlier game, or for other players, does not count.
 export function fitsCourt(match, court) {
-  if (!match || !court || court.teams.length !== 2 || match.game !== court.game) return false;
+  if (!validMatch(match) || !court || court.teams.length !== 2 || match.game !== court.game) return false;
   return match.names?.a === court.teams[0].p.join(' / ') && match.names?.b === court.teams[1].p.join(' / ');
 }
 

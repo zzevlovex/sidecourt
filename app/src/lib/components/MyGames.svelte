@@ -2,7 +2,8 @@
   // The signed-in player's saved games: totals, then each game.
   import Icon from '$lib/components/Icon.svelte';
   import { account } from '$lib/account.svelte.js';
-  import { myGames } from '$lib/history.svelte.js';
+  import { myGames, removeFromHistory } from '$lib/history.svelte.js';
+  import { toast } from '$lib/toasts.svelte.js';
 
   const STEP = 5; // shown at first, and added by each "See more"
 
@@ -19,6 +20,18 @@
     failed = false;
     myGames().then((rows) => (all = rows)).catch(() => (failed = true));
   });
+
+  // Removes the game, and everything else from the same host.
+  async function notMe(g) {
+    if (!confirm('Remove this from your history? Anything else from the same host is removed too, and they can\'t add you by code until you join one of their lobbies.')) return;
+    try {
+      await removeFromHistory('games', g.id);
+      all = await myGames();
+      toast('Removed from your history.', { type: 'success' });
+    } catch {
+      toast('Could not remove it. Check your connection and try again.', { type: 'warn' });
+    }
+  }
 
   const me = $derived(account.user?.id);
   const side = (g) => (g.players_a.includes(me) ? 'a' : 'b');
@@ -53,6 +66,7 @@
             <span class="vs-small">vs</span>
             <span class="res-team {mine === 'a' ? 'b' : 'a'} lost">{(mine === 'a' ? g.team_b : g.team_a).join(' & ')}</span>
             <span class="tag">{g.session_name}{g.court ? ` · Court ${g.court}` : ''}</span>
+            {#if g.recorded_by !== me}<button class="not-me" type="button" onclick={() => notMe(g)}>Not me</button>{/if}
           </span>
           <span class={['res-score', r === 'none' && 'none']}>
             {#if g.score_a !== null}

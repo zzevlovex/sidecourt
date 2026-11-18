@@ -122,7 +122,7 @@ export async function checkInByCode(code) {
   }
   const { data, error } = await supabase.rpc('check_in', { p_code: code.trim() });
   if (error) {
-    toast('Could not check in. Check your connection and try again.', { type: 'warn' });
+    toast(error.message?.startsWith('Too many') ? error.message : 'Could not check in. Check your connection and try again.', { type: 'warn' });
     return false;
   }
   const player = data?.[0];

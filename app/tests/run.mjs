@@ -8,7 +8,7 @@ import qrcode from 'qrcode-generator';
 import jsQR from 'jsqr';
 import { publicState, codeFrom, fitsCourt } from '../src/lib/logic/lobby.js';
 import { recordPlayers, rankRoster, forgetPlayer, dropLinks, linkFor, lastTyped, withoutLastTyped, suggestPlayers } from '../src/lib/logic/roster.js';
-import { gameRows, sessionRow } from '../src/lib/logic/history.js';
+import { gameRows, sessionRow, validSummary } from '../src/lib/logic/history.js';
 import { newKey, newPlayerCode, parseKey, keyEmail, ALPHABET } from '../src/lib/logic/keys.js';
 
 const play = (match, sides) => [...sides].reduce((m, s) => rally(m, s), match);
@@ -241,14 +241,28 @@ assert.equal(codeFrom('ABC10O'), null); // 1, 0 and O are never in codes
   assert.equal(seen.size, 3);
 }
 
+// Untrusted data: odd scores never reach the database; broken sessions are not shown.
+{
+  const sum = { name: 'x'.repeat(150), sport: 'pickleball', endedAt: '2026-11-20T10:00:00Z', games: 1,
+    results: [{ id: 'g', court: 1, teams: [['Ana'], ['Ben']], score: { a: -5, b: 1.5 }, winner: 'a' }], standings: rankings([]) };
+  const [row] = gameRows(sum, { Ana: 'id' });
+  assert.ok(row.score_a === null && row.score_b === null && row.session_name.length === 100);
+  assert.equal(sessionRow(sum, {}, 'i').name.length, 100);
+  assert.ok(validSummary(finishSession(newSession({ name: 'Real' }))));
+  const played = rankings([{ teams: [['Ana'], ['Ben']], score: { a: 11, b: 5 } }]);
+  assert.ok(validSummary({ ...sum, standings: played }));
+  for (const bad of [null, {}, { broken: true }, { ...sum, standings: [{ name: 'A' }] }, { ...sum, results: [{ teams: 'x' }] }, { ...sum, sport: 'chess' }, { ...sum, endedAt: 'soon' }]) assert.ok(!validSummary(bad));
+}
+
 // Scorer links: secrets never reach players; a remote score only counts for the game now on court.
 {
   assert.ok(!('scoreKeys' in publicState({ name: 'X', scoreKeys: { 1: 'SECRETSECRET' }, queue: [] })));
   const court = { id: 1, game: 2, teams: [{ p: ['Ana', 'Ben'] }, { p: ['Cy', 'Dee'] }] };
-  const m = { game: 2, names: { a: 'Ana / Ben', b: 'Cy / Dee' } };
+  const m = { game: 2, names: { a: 'Ana / Ben', b: 'Cy / Dee' }, sport: 'pickleball', a: 3, b: 1, serving: 'a', history: [] };
   assert.ok(fitsCourt(m, court));
   assert.ok(!fitsCourt({ ...m, game: 1 }, court)); // earlier game on the same court
   assert.ok(!fitsCourt({ ...m, names: { a: 'Ana / Cy', b: 'Ben / Dee' } }, court)); // other players
+  for (const bad of [{ a: -1 }, { b: 'x' }, { a: 1.5 }, { history: 'no' }, { serving: 'z' }, { sport: 'badminton' }]) assert.ok(!fitsCourt({ ...m, ...bad }, court)); // not a real score
   assert.ok(!fitsCourt(m, { ...court, teams: [] }) && !fitsCourt(null, court) && !fitsCourt({ game: 2 }, court));
 }
 

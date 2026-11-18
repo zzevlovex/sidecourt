@@ -2,7 +2,8 @@
   // Open play history: sessions the signed-in person played in or hosted.
   // Each one can show its ranking again and make share cards.
   import { account } from '$lib/account.svelte.js';
-  import { mySessions } from '$lib/history.svelte.js';
+  import { mySessions, removeFromHistory } from '$lib/history.svelte.js';
+  import { toast } from '$lib/toasts.svelte.js';
   import { plural } from '$lib/format.js';
   import Icon from './Icon.svelte';
   import Modal from './Modal.svelte';
@@ -26,6 +27,18 @@
     failed = false;
     mySessions().then((rows) => (all = rows)).catch(() => (failed = true));
   });
+
+  // Removes the session, and everything else from the same host.
+  async function notMe(s) {
+    if (!confirm('Remove this from your history? Anything else from the same host is removed too, and they can\'t add you by code until you join one of their lobbies.')) return;
+    try {
+      await removeFromHistory('sessions', s.id);
+      all = await mySessions();
+      toast('Removed from your history.', { type: 'success' });
+    } catch {
+      toast('Could not remove it. Check your connection and try again.', { type: 'warn' });
+    }
+  }
 
   const myName = $derived(account.profile?.display_name ?? null);
   // A shared name gets " (XXXX)" added by the host's app.
@@ -54,6 +67,7 @@
         <li class="session-row">
           <div class="session-main">
             <strong>{s.name}</strong>
+            {#if s.manager_id !== account.user.id}<button class="not-me" type="button" onclick={() => notMe(s)}>Not me</button>{/if}
             <span class="tag">{day(s.ended_at)} · {plural(s.summary.games, 'game')}{s.manager_id === account.user.id ? ' · hosted' : ''}</span>
             {#if me}
               <span class="session-me">

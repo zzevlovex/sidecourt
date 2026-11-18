@@ -161,7 +161,7 @@
         <form class="stack" onsubmit={(e) => { e.preventDefault(); run(async () => showKey(await account.create(name))); }}>
           <label>Your name <input bind:value={name} maxlength="40" placeholder="As players know you" autocomplete="nickname" required /></label>
           <button class="btn btn-primary btn-big" disabled={busy}>Create my account</button>
-          <span class="hint">You get a key to save. No email or password needed.</span>
+          <span class="hint">You get a key to save. No email or password needed. By creating an account, you agree to the <a href={resolve('/terms')}>terms and privacy notice</a>.</span>
         </form>
       {:else if !forgot}
           <form class="stack" onsubmit={(e) => { e.preventDefault(); run(async () => { await account.signIn(keyInput); keyInput = ''; toast('Signed in.', { type: 'success' }); }); }}>

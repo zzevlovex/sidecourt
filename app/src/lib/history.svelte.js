@@ -4,7 +4,7 @@
 import { supabase } from './supabase.js';
 import { account } from './account.svelte.js';
 import { load, save } from './storage.js';
-import { gameRows, sessionRow } from './logic/history.js';
+import { gameRows, sessionRow, validSummary } from './logic/history.js';
 import { newId } from './logic/queue.js';
 
 const OUTBOX = 'sidecourt.outbox';
@@ -92,7 +92,14 @@ export async function mySessions(limit = 100) {
     .order('ended_at', { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return data;
+  return data.filter((row) => validSummary(row.summary));
+}
+
+// "Not me": take the player out of a game or session. If another host saved it,
+// everything from that host goes too and the host is blocked (see 07_security.sql).
+export async function removeFromHistory(table, id) {
+  const { error } = await supabase.rpc('remove_from_history', { p_table: table, p_id: id });
+  if (error) throw error;
 }
 
 if (typeof window !== 'undefined') {

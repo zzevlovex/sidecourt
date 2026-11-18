@@ -48,7 +48,7 @@
   {@render children()}
 </main>
 <footer class="site-footer">
-  <strong>Sidecourt</strong><span class="dot" aria-hidden="true"></span><span>Scoring and open play for pickleball and badminton</span>
+  <strong>Sidecourt</strong><span class="dot" aria-hidden="true"></span><span>Scoring and open play for pickleball and badminton</span><span class="dot" aria-hidden="true"></span><a href={resolve('/terms')}>Terms and privacy</a>
 </footer>
 
 <Toasts />
